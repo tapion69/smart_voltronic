@@ -3,8 +3,13 @@ FROM ${BUILD_FROM}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-RUN apk add --no-cache nodejs npm jq bash
-RUN npm install -g --unsafe-perm node-red@3.1.9 && npm cache clean --force
+# IMPORTANT: installer une version LTS (22) et pas Node 24
+RUN apk add --no-cache bash jq nodejs-lts npm \
+  || apk add --no-cache bash jq "nodejs~22" "npm~10"
+
+# Node-RED 4.x (supporte Node >=18, recommande Node 22)
+RUN npm install -g --unsafe-perm node-red@4.1.4 \
+  && npm cache clean --force
 
 COPY . /addon
 RUN chmod a+x /addon/run.sh
