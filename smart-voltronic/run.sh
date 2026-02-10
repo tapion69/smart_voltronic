@@ -89,9 +89,16 @@ for p in "$SERIAL_1" "$SERIAL_2" "$SERIAL_3"; do
   fi
 done
 
-# ---------- Appliquer flows ----------
-mkdir -p /data
+# Réappliquer le flow
 cp /addon/flows.json /data/flows.json
+
+# Copier les credentials Node-RED (IMPORTANT pour MQTT auth)
+if [ -f /addon/flows_cred.json ]; then
+  cp /addon/flows_cred.json /data/flows_cred.json
+  logi "OK: flows_cred.json copié dans /data"
+else
+  logw "flows_cred.json absent -> Node-RED démarrera sans credentials chiffrés"
+fi
 
 # Inject MQTT
 sed -i "s/__MQTT_HOST__/$(esc "$MQTT_HOST")/g" /data/flows.json
