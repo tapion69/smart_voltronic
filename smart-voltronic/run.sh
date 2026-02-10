@@ -60,7 +60,7 @@ if [ -f /usr/lib/bashio/bashio.sh ]; then
     MQTT_PASS="$(bashio::services mqtt password)"
     logi "MQTT (HA service): ${MQTT_HOST}:${MQTT_PORT} (user: ${MQTT_USER:-<none>})"
   else
-    logw "MQTT service indisponible (config.json doit avoir hassio_api: true + services: [\"mqtt:need\"])"
+    logw "MQTT service indisponible (config.json: hassio_api: true + services: [\"mqtt:need\"])"
   fi
 fi
 
@@ -104,7 +104,7 @@ sed -i "s/__SERIAL_1__/$(esc "$SERIAL_1")/g" /data/flows.json
 sed -i "s/__SERIAL_2__/$(esc "$SERIAL_2")/g" /data/flows.json
 sed -i "s/__SERIAL_3__/$(esc "$SERIAL_3")/g" /data/flows.json
 
-# --- Nettoyage configs serial-port vides (jq compatible / simple) ---
+# --- Nettoyage configs serial-port vides (jq minimal, sans !) ---
 cleanup_unconfigured_serial_ports() {
   local tmp="/data/flows.tmp.json"
 
@@ -124,18 +124,27 @@ cleanup_unconfigured_serial_ports() {
 
   logw "Configs serial-port vides détectées (suppression): $(echo "$bad_ids" | tr '\n' ' ')"
 
-  # Pour chaque bad id: supprimer les serial in/out qui le référencent, puis supprimer la config
-  while IFS= read -r bid; do
-    [ -z "$bid" ] && continue
+  # Construire un tableau JSON des bad ids
+  local bad_json
+  bad_json="$(printf '%s\n' "$bad_ids" | jq -R . | jq -s .)"
 
-    jq --arg bid "$bid" '
-      map(select(!(((.type=="serial in") or (.type=="serial out")) and (.serial == $bid))))
-    ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+  # 1) Supprimer les serial in/out qui référencent ces configs
+  jq --argjson bad "$bad_json" '
+    del(
+      .[] |
+      select((.type=="serial in" or .type=="serial out")) |
+      select([.serial] as $s | ($bad | index($s[0]) != null))
+    )
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 
-    jq --arg bid "$bid" '
-      map(select(!(.type=="serial-port" and .id == $bid)))
-    ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
-  done <<< "$bad_ids"
+  # 2) Supprimer les configs serial-port elles-mêmes
+  jq --argjson bad "$bad_json" '
+    del(
+      .[] |
+      select(.type=="serial-port") |
+      select([.id] as $i | ($bad | index($i[0]) != null))
+    )
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 }
 
 cleanup_unconfigured_serial_ports
@@ -147,6 +156,10 @@ if grep -q "__MQTT_HOST__\|__MQTT_PORT__\|__SERIAL_1__\|__SERIAL_2__\|__SERIAL_3
 else
   logi "OK: placeholders remplacés dans /data/flows.json"
 fi
+
+logi "Starting Node-RED..."
+exec node-red --userDir /data --settings /addon/settings.js
+
 
 logi "Starting Node-RED..."
 exec node-red --userDir /data --settings /addon/settings.js
