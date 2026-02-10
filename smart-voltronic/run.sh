@@ -86,51 +86,66 @@ sed -i "s/__SERIAL_1__/$(esc "$SERIAL_1")/g" /data/flows.json
 sed -i "s/__SERIAL_2__/$(esc "$SERIAL_2")/g" /data/flows.json
 sed -i "s/__SERIAL_3__/$(esc "$SERIAL_3")/g" /data/flows.json
 
-# --- Suppression dynamique des ports non configurés ---
-# IMPORTANT : adapte les IDs ci-dessous à TON flows.json
-# Port 1
-SERCFG_1="c546b54ae425b9d2"
-SERIN_1="01e226fa55d4a3aa"
-SEROUT_1="494f5e90163b989f"
+# --- Suppression dynamique des ports non configurés (robuste, basé sur NAME) ---
+# On supprime:
+# - le serial in/out nommé "📥 Serial In N" / "📤 Serial Out N"
+# - et la config "serial-port" référencée par leur champ "serial"
+remove_serial_group_if_empty() {
+  local n="$1"
+  local port="$2"
 
-# Port 2
-SERCFG_2="55a40ce3e960db15"
-SERIN_2="682e1c93304906ac"
-SEROUT_2="575d5f8e21bb3f46"
+  local in_name="📥 Serial In ${n}"
+  local out_name="📤 Serial Out ${n}"
 
-# Port 3
-SERCFG_3="67ab0f8860a22b96"
-SERIN_3="9abbc9c03dfdc6b9"
-SEROUT_3="9a07ca0df6b65d95"
+  if [ -n "$port" ]; then
+    return 0
+  fi
 
-remove_port_nodes() {
-  local cfg="$1"
-  local inid="$2"
-  local outid="$3"
-  local label="$4"
+  logw "Serial${n} vide -> suppression de '${in_name}', '${out_name}' + config associée"
 
-  logw "${label} vide -> suppression des nodes Serial In/Out + config dans /data/flows.json"
-  tmp="/data/flows.tmp.json"
-  jq --arg cfg "$cfg" --arg inid "$inid" --arg outid "$outid" \
-     'map(select(.id != $cfg and .id != $inid and .id != $outid))' \
-     /data/flows.json > "$tmp" \
-    && mv "$tmp" /data/flows.json
+  local tmp="/data/flows.tmp.json"
+
+  # 1) récupérer les IDs de config série référencés par ces nodes
+  # (peut être vide si les nodes n'existent pas)
+  local cfg_ids
+  cfg_ids="$(jq -r --arg in "$in_name" --arg out "$out_name" '
+    [ .[]
+      | select((.type=="serial in" and .name==$in) or (.type=="serial out" and .name==$out))
+      | .serial
+    ]
+    | unique
+    | .[]
+  ' /data/flows.json 2>/dev/null || true)"
+
+  # 2) supprimer les nodes serial in/out de ce groupe par name
+  jq --arg in "$in_name" --arg out "$out_name" '
+    map(select(!((.type=="serial in" and .name==$in) or (.type=="serial out" and .name==$out))))
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+
+  # 3) supprimer les configs "serial-port" référencées (si elles ne sont plus utilisées ailleurs)
+  # On ne supprime que si aucun autre serial in/out ne référence ce cfg.
+  if [ -n "$cfg_ids" ]; then
+    while IFS= read -r cfg; do
+      [ -z "$cfg" ] && continue
+
+      # encore utilisé ?
+      if jq -e --arg cfg "$cfg" '
+          any(.[]; ((.type=="serial in" or .type=="serial out") and (.serial==$cfg)))
+        ' /data/flows.json >/dev/null 2>&1; then
+        logw "Config serial-port ${cfg} encore utilisée ailleurs -> conservation"
+      else
+        logi "Suppression config serial-port ${cfg} (plus utilisée)"
+        jq --arg cfg "$cfg" '
+          map(select(!(.type=="serial-port" and .id==$cfg)))
+        ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+      fi
+    done <<< "$cfg_ids"
+  fi
 }
 
-# Si SERIAL_3 vide -> on supprime Port 3
-if [ -z "${SERIAL_3}" ]; then
-  remove_port_nodes "$SERCFG_3" "$SERIN_3" "$SEROUT_3" "Serial3"
-fi
-
-# Si SERIAL_2 vide -> on supprime Port 2
-if [ -z "${SERIAL_2}" ]; then
-  remove_port_nodes "$SERCFG_2" "$SERIN_2" "$SEROUT_2" "Serial2"
-fi
-
-# Si SERIAL_1 vide -> on supprime Port 1 (sinon Node-RED va démarrer avec un port undefined)
-if [ -z "${SERIAL_1}" ]; then
-  remove_port_nodes "$SERCFG_1" "$SERIN_1" "$SEROUT_1" "Serial1"
-fi
+remove_serial_group_if_empty 3 "$SERIAL_3"
+remove_serial_group_if_empty 2 "$SERIAL_2"
+remove_serial_group_if_empty 1 "$SERIAL_1"
 
 # Vérifier qu'il ne reste pas de placeholders
 if grep -q "__MQTT_HOST__\|__MQTT_PORT__\|__SERIAL_1__\|__SERIAL_2__\|__SERIAL_3__" /data/flows.json; then
