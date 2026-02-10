@@ -1,5 +1,6 @@
 #!/usr/bin/with-contenv bash
 set -euo pipefail
+echo "### RUN.SH SMART VOLTRONIC START ###"
 
 # Logs (bashio si dispo)
 if [ -f /usr/lib/bashio/bashio.sh ]; then
