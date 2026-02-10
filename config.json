@@ -8,6 +8,8 @@
   "arch": ["amd64", "aarch64", "armv7"],
 
   "init": false,
+  "hassio_api": true,
+  "hassio_role": "default",
   "services": ["mqtt:need"],
   "host_network": false,
 
