@@ -6,6 +6,9 @@ RUN npm install -g --unsafe-perm node-red@3.1.9 && npm cache clean --force
 
 # Le contexte = le dossier smart-voltronic/
 COPY . /addon
-WORKDIR /addon
 
+# ✅ évite /addon/run.sh: Permission denied
+RUN chmod a+x /addon/run.sh
+
+WORKDIR /addon
 CMD ["/addon/run.sh"]
