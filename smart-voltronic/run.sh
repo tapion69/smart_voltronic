@@ -39,7 +39,7 @@ jq_int_or() {
   jq -r "($jq_expr // $fallback) | tonumber" "$OPTS" 2>/dev/null || echo "$fallback"
 }
 
-# Escape safe pour sed
+# Escape safe pour sed (flows.json uniquement)
 esc() { printf '%s' "$1" | sed -e 's/[\/&|\\]/\\&/g'; }
 
 # ---------- MQTT : HA service si dispo, sinon fallback options.json ----------
@@ -63,7 +63,6 @@ fi
 if [ -z "${MQTT_HOST}" ] || [ -z "${MQTT_PORT}" ]; then
   MQTT_HOST="$(jq_str_or '.mqtt_host' 'core-mosquitto')"
   MQTT_PORT="$(jq_int_or '.mqtt_port' 1883)"
-  # ✅ accepte plusieurs noms de champs
   MQTT_USER="$(jq -r '.mqtt_user // .mqtt_username // ""' "$OPTS")"
   MQTT_PASS="$(jq -r '.mqtt_pass // .mqtt_password // ""' "$OPTS")"
   logw "MQTT (fallback options.json): ${MQTT_HOST}:${MQTT_PORT} (user: ${MQTT_USER:-<none>})"
@@ -89,26 +88,19 @@ for p in "$SERIAL_1" "$SERIAL_2" "$SERIAL_3"; do
   fi
 done
 
-# Réappliquer le flow
+# ---------- Appliquer flows ----------
 cp /addon/flows.json /data/flows.json
 
-# Copier les credentials Node-RED (IMPORTANT pour MQTT auth)
+# ✅ Copier les credentials Node-RED (NE PAS MODIFIER : fichier chiffré)
 if [ -f /addon/flows_cred.json ]; then
   cp /addon/flows_cred.json /data/flows_cred.json
   logi "OK: flows_cred.json copié dans /data"
+  logi "flows_cred.json taille: $(wc -c </data/flows_cred.json) bytes"
 else
-  logw "flows_cred.json absent -> Node-RED démarrera sans credentials chiffrés"
+  logw "flows_cred.json absent -> Node-RED démarrera sans credentials (MQTT auth KO)"
 fi
 
-# Debug flows_cred
-if [ -f /data/flows_cred.json ]; then
-  logi "flows_cred.json présent: $(wc -c </data/flows_cred.json) bytes"
-else
-  logw "flows_cred.json ABSENT dans /data"
-fi
-
-
-# Inject MQTT
+# Inject MQTT (dans flows.json uniquement)
 sed -i "s/__MQTT_HOST__/$(esc "$MQTT_HOST")/g" /data/flows.json
 sed -i "s/__MQTT_PORT__/$(esc "$MQTT_PORT")/g" /data/flows.json
 sed -i "s/__MQTT_USER__/$(esc "$MQTT_USER")/g" /data/flows.json
@@ -119,17 +111,7 @@ sed -i "s/__SERIAL_1__/$(esc "$SERIAL_1")/g" /data/flows.json
 sed -i "s/__SERIAL_2__/$(esc "$SERIAL_2")/g" /data/flows.json
 sed -i "s/__SERIAL_3__/$(esc "$SERIAL_3")/g" /data/flows.json
 
-# ✅ Optionnel mais recommandé : credentials chiffrés (Node-RED 4.x)
-if [ -f /addon/flows_cred.json ]; then
-  cp /addon/flows_cred.json /data/flows_cred.json
-  sed -i "s/__MQTT_USER__/$(esc "$MQTT_USER")/g" /data/flows_cred.json
-  sed -i "s/__MQTT_PASS__/$(esc "$MQTT_PASS")/g" /data/flows_cred.json
-  logi "OK: flows_cred.json installé dans /data"
-else
-  logw "flows_cred.json absent -> Node-RED peut afficher 'Encrypted credentials not found'"
-fi
-
-# --- Nettoyage configs serial-port vides (jq minimal, sans !) ---
+# --- Nettoyage configs serial-port vides (jq minimal) ---
 cleanup_unconfigured_serial_ports() {
   local tmp="/data/flows.tmp.json"
 
@@ -170,7 +152,7 @@ cleanup_unconfigured_serial_ports() {
 
 cleanup_unconfigured_serial_ports
 
-# Vérifier placeholders (incluant MQTT + serial)
+# Vérifier placeholders restants
 if grep -q "__MQTT_HOST__\|__MQTT_PORT__\|__MQTT_USER__\|__MQTT_PASS__\|__SERIAL_1__\|__SERIAL_2__\|__SERIAL_3__" /data/flows.json; then
   loge "Placeholders encore présents dans /data/flows.json -> vérifie flows.json et options.json"
   grep -n "__MQTT_HOST__\|__MQTT_PORT__\|__MQTT_USER__\|__MQTT_PASS__\|__SERIAL_1__\|__SERIAL_2__\|__SERIAL_3__" /data/flows.json || true
