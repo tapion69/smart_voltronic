@@ -1,4 +1,4 @@
-#!/usr/bin/with-contenv bash
+#!/usr/bin/env bash
 set -euo pipefail
 echo "### RUN.SH SMART VOLTRONIC START ###"
 
