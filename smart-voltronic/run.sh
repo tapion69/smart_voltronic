@@ -19,7 +19,6 @@ fi
 logi "Smart Voltronic: init..."
 
 OPTS="/data/options.json"
-
 if [ ! -f "$OPTS" ]; then
   loge "options.json introuvable dans /data. Stop."
   exit 1
@@ -49,11 +48,11 @@ MQTT_PASS="$(jq -r '.mqtt_pass // .mqtt_password // ""' "$OPTS")"
 logi "MQTT (options.json): ${MQTT_HOST:-<empty>}:${MQTT_PORT} (user: ${MQTT_USER:-<none>})"
 
 if [ -z "${MQTT_HOST}" ]; then
-  loge "mqtt_host vide."
+  loge "mqtt_host vide. Renseigne-le dans la config add-on."
   exit 1
 fi
 if [ -z "${MQTT_USER}" ] || [ -z "${MQTT_PASS}" ]; then
-  loge "mqtt_user ou mqtt_pass vide."
+  loge "mqtt_user ou mqtt_pass vide. Renseigne-les dans la config add-on."
   exit 1
 fi
 
@@ -69,10 +68,47 @@ logi "Serial3: ${SERIAL_3:-<empty>}"
 # ---------- Appliquer flows ----------
 cp /addon/flows.json /data/flows.json
 
-# Optionnel : si tu gardes __SERIAL_X__ dans flows.json
+# ✅ IMPORTANT : on supprime les anciens credentials pour forcer Node-RED à reprendre ceux qu’on injecte
+if [ -f /data/flows_cred.json ]; then
+  rm -f /data/flows_cred.json
+  logw "flows_cred.json supprimé (reset creds Node-RED) pour éviter anciens identifiants MQTT"
+fi
+
+# ---------- Serial placeholders (si tu utilises __SERIAL_X__) ----------
 sed -i "s/__SERIAL_1__/$(esc "$SERIAL_1")/g" /data/flows.json
 sed -i "s/__SERIAL_2__/$(esc "$SERIAL_2")/g" /data/flows.json
 sed -i "s/__SERIAL_3__/$(esc "$SERIAL_3")/g" /data/flows.json
+
+# ---------- Injection MQTT dans le node mqtt-broker ----------
+tmp="/data/flows.tmp.json"
+
+if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
+  loge 'Aucun mqtt-broker nommé "HA MQTT Broker" trouvé dans flows.json'
+  exit 1
+fi
+
+logi "Injection MQTT (broker/port + credentials) dans flows.json"
+
+jq \
+  --arg host "$MQTT_HOST" \
+  --arg port "$MQTT_PORT" \
+  --arg user "$MQTT_USER" \
+  --arg pass "$MQTT_PASS" \
+  '
+  map(
+    if .type=="mqtt-broker" and .name=="HA MQTT Broker"
+    then
+      .broker=$host
+      | .port=$port
+      # Certains nodes lisent user/password ici…
+      | .user=$user
+      | .password=$pass
+      # …et surtout le node mqtt garde souvent les creds dans "credentials"
+      | .credentials = {"user": $user, "password": $pass}
+    else .
+    end
+  )
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 
 # --- Nettoyage configs serial-port vides ---
 cleanup_unconfigured_serial_ports() {
@@ -114,14 +150,9 @@ cleanup_unconfigured_serial_ports() {
 }
 cleanup_unconfigured_serial_ports
 
-# ✅ Export des variables d'environnement pour Node-RED
-export MQTT_HOST MQTT_PORT MQTT_USER MQTT_PASS
-export SERIAL_1 SERIAL_2 SERIAL_3
-
-logi "Env set: MQTT_HOST/MQTT_PORT/MQTT_USER/MQTT_PASS + SERIAL_1..3"
-
 logi "Starting Node-RED..."
 exec node-red --userDir /data --settings /addon/settings.js
+
 
 logi "Starting Node-RED..."
 exec node-red --userDir /data --settings /addon/settings.js
