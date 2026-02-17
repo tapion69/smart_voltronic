@@ -20,10 +20,8 @@ logi "Smart Voltronic: init..."
 
 OPTS="/data/options.json"
 
-# ✅ NE PAS créer options.json
 if [ ! -f "$OPTS" ]; then
-  loge "options.json introuvable dans /data (montage HA absent ou problème d'add-on). Stop."
-  loge "Chemin attendu: $OPTS"
+  loge "options.json introuvable dans /data. Stop."
   exit 1
 fi
 
@@ -42,7 +40,7 @@ jq_int_or() {
 # Escape safe pour sed (serial uniquement)
 esc() { printf '%s' "$1" | sed -e 's/[\/&|\\]/\\&/g'; }
 
-# ---------- MQTT : UNIQUEMENT options.json ----------
+# ---------- MQTT (options.json) ----------
 MQTT_HOST="$(jq_str_or '.mqtt_host' '')"
 MQTT_PORT="$(jq_int_or '.mqtt_port' 1883)"
 MQTT_USER="$(jq -r '.mqtt_user // .mqtt_username // ""' "$OPTS")"
@@ -51,13 +49,11 @@ MQTT_PASS="$(jq -r '.mqtt_pass // .mqtt_password // ""' "$OPTS")"
 logi "MQTT (options.json): ${MQTT_HOST:-<empty>}:${MQTT_PORT} (user: ${MQTT_USER:-<none>})"
 
 if [ -z "${MQTT_HOST}" ]; then
-  loge "mqtt_host vide. Renseigne-le dans l'onglet Configuration de l'add-on."
+  loge "mqtt_host vide."
   exit 1
 fi
-
-# Si tu veux autoriser un broker sans auth, commente ce bloc
 if [ -z "${MQTT_USER}" ] || [ -z "${MQTT_PASS}" ]; then
-  loge "mqtt_user ou mqtt_pass vide. Renseigne-les dans l'onglet Configuration de l'add-on."
+  loge "mqtt_user ou mqtt_pass vide."
   exit 1
 fi
 
@@ -70,48 +66,15 @@ logi "Serial1: ${SERIAL_1:-<empty>}"
 logi "Serial2: ${SERIAL_2:-<empty>}"
 logi "Serial3: ${SERIAL_3:-<empty>}"
 
-for p in "$SERIAL_1" "$SERIAL_2" "$SERIAL_3"; do
-  if [ -n "$p" ] && [ ! -e "$p" ]; then
-    logw "Port série introuvable: $p"
-  fi
-done
-
 # ---------- Appliquer flows ----------
 cp /addon/flows.json /data/flows.json
 
-# ---------- Injection (robuste) ----------
-# 1) SERIAL via sed (simple)
+# Optionnel : si tu gardes __SERIAL_X__ dans flows.json
 sed -i "s/__SERIAL_1__/$(esc "$SERIAL_1")/g" /data/flows.json
 sed -i "s/__SERIAL_2__/$(esc "$SERIAL_2")/g" /data/flows.json
 sed -i "s/__SERIAL_3__/$(esc "$SERIAL_3")/g" /data/flows.json
 
-# 2) MQTT via jq (évite tout souci de mot de passe)
-tmp="/data/flows.tmp.json"
-
-# Vérifie qu'on a bien un node mqtt-broker attendu
-if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
-  logw 'Aucun mqtt-broker nommé "HA MQTT Broker" trouvé. Injection MQTT ignorée (vérifie /addon/flows.json).'
-else
-  logi "Injection MQTT dans flows.json via jq (host/port/user/pass)"
-  jq \
-    --arg host "$MQTT_HOST" \
-    --arg port "$MQTT_PORT" \
-    --arg user "$MQTT_USER" \
-    --arg pass "$MQTT_PASS" \
-    '
-    map(
-      if .type=="mqtt-broker" and .name=="HA MQTT Broker"
-      then .broker=$host
-           | .port=$port
-           | .user=$user
-           | .password=$pass
-      else .
-      end
-    )
-    ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
-fi
-
-# --- Nettoyage configs serial-port vides (jq minimal) ---
+# --- Nettoyage configs serial-port vides ---
 cleanup_unconfigured_serial_ports() {
   local tmp="/data/flows.tmp.json"
 
@@ -149,17 +112,16 @@ cleanup_unconfigured_serial_ports() {
     )
   ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 }
-
 cleanup_unconfigured_serial_ports
 
-# Vérifier placeholders restants (serial + MQTT)
-if grep -q "__MQTT_HOST__\|__MQTT_PORT__\|__MQTT_USER__\|__MQTT_PASS__\|__SERIAL_1__\|__SERIAL_2__\|__SERIAL_3__" /data/flows.json; then
-  loge "Placeholders encore présents dans /data/flows.json -> vérifie /addon/flows.json et options.json"
-  grep -n "__MQTT_HOST__\|__MQTT_PORT__\|__MQTT_USER__\|__MQTT_PASS__\|__SERIAL_1__\|__SERIAL_2__\|__SERIAL_3__" /data/flows.json || true
-  exit 1
-else
-  logi "OK: placeholders remplacés dans /data/flows.json"
-fi
+# ✅ Export des variables d'environnement pour Node-RED
+export MQTT_HOST MQTT_PORT MQTT_USER MQTT_PASS
+export SERIAL_1 SERIAL_2 SERIAL_3
+
+logi "Env set: MQTT_HOST/MQTT_PORT/MQTT_USER/MQTT_PASS + SERIAL_1..3"
+
+logi "Starting Node-RED..."
+exec node-red --userDir /data --settings /addon/settings.js
 
 logi "Starting Node-RED..."
 exec node-red --userDir /data --settings /addon/settings.js
