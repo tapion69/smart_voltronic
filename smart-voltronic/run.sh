@@ -67,8 +67,6 @@ logi "Serial3: ${SERIAL_3:-<empty>}"
 # Seul le hash bcrypt est stocké dans /data (non versionné, local à HA uniquement).
 # Pour changer le mot de passe : générer un nouveau hash via "node-red-admin hash-pw"
 # et remplacer la valeur NR_ADMIN_HASH ci-dessous.
-#
-# Hash bcrypt ci-dessous = mot de passe connu uniquement par l'administrateur.
 
 NR_ADMIN_AUTH_FILE="/data/nr_adminauth.json"
 NR_ADMIN_USER="pi"
@@ -92,11 +90,21 @@ else
 fi
 
 # ---------- Gestion du flows.json ----------
-if [ ! -f /data/flows.json ]; then
-  logi "Première installation : copie de flows.json depuis l'addon"
+# Logique de versioning :
+#   - Première installation                    -> copie du flows depuis l'addon
+#   - Version flows addon > version installée  -> mise à jour du flows
+#   - Version identique                        -> flows utilisateur conservé
+
+ADDON_FLOWS_VERSION="$(cat /addon/flows_version.txt 2>/dev/null || echo '0.0.0')"
+INSTALLED_VERSION="$(cat /data/flows_version.txt 2>/dev/null || echo '')"
+
+if [ ! -f /data/flows.json ] || [ "$INSTALLED_VERSION" != "$ADDON_FLOWS_VERSION" ]; then
+  logi "Mise à jour flows : (installé: ${INSTALLED_VERSION:-aucun}) -> (addon: $ADDON_FLOWS_VERSION)"
   cp /addon/flows.json /data/flows.json
+  echo "$ADDON_FLOWS_VERSION" > /data/flows_version.txt
+  logi "flows.json mis à jour vers v$ADDON_FLOWS_VERSION"
 else
-  logi "flows.json existant détecté : conservation des flows utilisateur"
+  logi "flows.json à jour (v$ADDON_FLOWS_VERSION), conservation des flows utilisateur"
 fi
 
 tmp="/data/flows.tmp.json"
@@ -190,6 +198,9 @@ jq -n \
   > /data/flows_cred.json
 
 logi "flows_cred.json créé avec succès"
+
+logi "Starting Node-RED sur le port 1892..."
+exec node-red --userDir /data --settings /addon/settings.js
 
 logi "Starting Node-RED sur le port 1892..."
 exec node-red --userDir /data --settings /addon/settings.js
