@@ -1,0 +1,106 @@
+name: "🔄 Vérification mises à jour Node-RED"
+
+on:
+  schedule:
+    # Vérifie chaque lundi à 8h00
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+    # Permet aussi de lancer manuellement depuis GitHub
+
+jobs:
+  check-update:
+    name: "Vérifier Node-RED + serialport"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "📥 Checkout du repo"
+        uses: actions/checkout@v4
+
+      - name: "🔍 Récupérer les versions actuelles"
+        id: current
+        run: |
+          # Version Node-RED dans le Dockerfile
+          CURRENT_NR=$(grep -oP 'node-red@\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
+          echo "nodered=$CURRENT_NR" >> $GITHUB_OUTPUT
+          echo "✅ Node-RED actuel : $CURRENT_NR"
+
+          # Version node-red-node-serialport dans le Dockerfile
+          CURRENT_SP=$(grep -oP 'node-red-node-serialport@\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile || echo "")
+          echo "serialport=$CURRENT_SP" >> $GITHUB_OUTPUT
+          echo "✅ Serialport actuel : ${CURRENT_SP:-non versionné}"
+
+      - name: "🌐 Récupérer les dernières versions sur npm"
+        id: latest
+        run: |
+          # Dernière version stable de Node-RED
+          LATEST_NR=$(npm show node-red version)
+          echo "nodered=$LATEST_NR" >> $GITHUB_OUTPUT
+          echo "🆕 Node-RED latest : $LATEST_NR"
+
+          # Dernière version de node-red-node-serialport
+          LATEST_SP=$(npm show node-red-node-serialport version)
+          echo "serialport=$LATEST_SP" >> $GITHUB_OUTPUT
+          echo "🆕 Serialport latest : $LATEST_SP"
+
+      - name: "📝 Mettre à jour le Dockerfile si nécessaire"
+        id: update
+        run: |
+          CHANGED=false
+
+          # Mettre à jour Node-RED si nouvelle version
+          if [ "${{ steps.current.outputs.nodered }}" != "${{ steps.latest.outputs.nodered }}" ]; then
+            echo "🔄 Mise à jour Node-RED : ${{ steps.current.outputs.nodered }} -> ${{ steps.latest.outputs.nodered }}"
+            sed -i "s/node-red@${{ steps.current.outputs.nodered }}/node-red@${{ steps.latest.outputs.nodered }}/g" Dockerfile
+            CHANGED=true
+          else
+            echo "✅ Node-RED déjà à jour (${{ steps.current.outputs.nodered }})"
+          fi
+
+          # Mettre à jour serialport si il est versionné et qu'une nouvelle version existe
+          if [ -n "${{ steps.current.outputs.serialport }}" ] && \
+             [ "${{ steps.current.outputs.serialport }}" != "${{ steps.latest.outputs.serialport }}" ]; then
+            echo "🔄 Mise à jour serialport : ${{ steps.current.outputs.serialport }} -> ${{ steps.latest.outputs.serialport }}"
+            sed -i "s/node-red-node-serialport@${{ steps.current.outputs.serialport }}/node-red-node-serialport@${{ steps.latest.outputs.serialport }}/g" Dockerfile
+            CHANGED=true
+          else
+            echo "✅ Serialport déjà à jour"
+          fi
+
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+      - name: "🚀 Créer la Pull Request"
+        if: steps.update.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: |
+            🔄 Mise à jour automatique des dépendances
+
+            - Node-RED : ${{ steps.current.outputs.nodered }} -> ${{ steps.latest.outputs.nodered }}
+            - node-red-node-serialport : ${{ steps.current.outputs.serialport }} -> ${{ steps.latest.outputs.serialport }}
+          title: "🔄 Mise à jour Node-RED ${{ steps.latest.outputs.nodered }}"
+          body: |
+            ## Mises à jour disponibles 🆕
+
+            | Package | Version actuelle | Nouvelle version |
+            |---------|-----------------|-----------------|
+            | node-red | `${{ steps.current.outputs.nodered }}` | `${{ steps.latest.outputs.nodered }}` |
+            | node-red-node-serialport | `${{ steps.current.outputs.serialport }}` | `${{ steps.latest.outputs.serialport }}` |
+
+            ## ✅ Pour appliquer la mise à jour
+            1. Vérifiez les changements dans le Dockerfile
+            2. Testez si possible sur votre installation
+            3. Cliquez **Merge Pull Request**
+            4. L'addon sera automatiquement republié avec les nouvelles versions
+
+            ## 📋 Liens utiles
+            - [Changelog Node-RED](https://github.com/node-red/node-red/blob/master/CHANGELOG.md)
+            - [Releases node-red-node-serialport](https://github.com/node-red/node-red-nodes/releases)
+
+          branch: "auto-update/nodered-${{ steps.latest.outputs.nodered }}"
+          delete-branch: true
+          labels: "🔄 mise à jour automatique"
+
+      - name: "✅ Aucune mise à jour disponible"
+        if: steps.update.outputs.changed == 'false'
+        run: echo "Tout est à jour, aucune PR créée."
