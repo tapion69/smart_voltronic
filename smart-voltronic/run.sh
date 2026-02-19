@@ -62,66 +62,36 @@ logi "Serial1: ${SERIAL_1:-<empty>}"
 logi "Serial2: ${SERIAL_2:-<empty>}"
 logi "Serial3: ${SERIAL_3:-<empty>}"
 
-# ---------- Génération du hash bcrypt pour l'auth Node-RED ----------
-logi "Génération du hash bcrypt pour l'auth Node-RED..."
+# ---------- Auth Node-RED ----------
+# Le mot de passe n'apparait JAMAIS en clair ici ni dans HA.
+# Seul le hash bcrypt est stocké dans /data (non versionné, local à HA uniquement).
+# Pour changer le mot de passe : générer un nouveau hash via "node-red-admin hash-pw"
+# et remplacer la valeur NR_ADMIN_HASH ci-dessous.
+#
+# Hash bcrypt ci-dessous = mot de passe connu uniquement par l'administrateur.
 
 NR_ADMIN_AUTH_FILE="/data/nr_adminauth.json"
 NR_ADMIN_USER="pi"
-NR_ADMIN_PASS="monstro6364"
+# Hash bcrypt (cost 8) généré hors ligne — ne pas mettre le mot de passe en clair
+NR_ADMIN_HASH='HASH_A_REMPLACER'
 
-BCRYPTJS_PATH=""
-for p in \
-  /usr/lib/node_modules/node-red/node_modules/bcryptjs \
-  /usr/local/lib/node_modules/node-red/node_modules/bcryptjs \
-  /opt/node_modules/bcryptjs \
-  /usr/lib/node_modules/bcryptjs \
-  /usr/local/lib/node_modules/bcryptjs; do
-  if [ -f "${p}/index.js" ]; then
-    BCRYPTJS_PATH="$p"
-    break
-  fi
-done
-
-if [ -z "$BCRYPTJS_PATH" ]; then
-  loge "bcryptjs introuvable. Impossible de générer le hash pour l'auth Node-RED."
+if [ "$NR_ADMIN_HASH" = "HASH_A_REMPLACER" ]; then
+  loge "Vous devez générer un hash bcrypt et le mettre dans NR_ADMIN_HASH dans run.sh"
+  loge "Commande : node-red-admin hash-pw"
   exit 1
 fi
 
-logi "bcryptjs trouvé : $BCRYPTJS_PATH"
-
-HASH="$(node -e "
-const bcrypt = require('$BCRYPTJS_PATH');
-console.log(bcrypt.hashSync('$NR_ADMIN_PASS', 8));
-")"
-
-if [ -z "$HASH" ]; then
-  loge "Échec de la génération du hash bcrypt."
-  exit 1
+# Créer le fichier d'auth une seule fois dans /data (jamais versionné sur GitHub)
+if [ ! -f "$NR_ADMIN_AUTH_FILE" ]; then
+  logi "Création de nr_adminauth.json..."
+  printf '{\n  "type": "credentials",\n  "users": [\n    {\n      "username": "%s",\n      "password": "%s",\n      "permissions": "*"\n    }\n  ]\n}\n' \
+    "$NR_ADMIN_USER" "$NR_ADMIN_HASH" > "$NR_ADMIN_AUTH_FILE"
+  logi "nr_adminauth.json créé"
+else
+  logi "nr_adminauth.json existant conservé"
 fi
-
-logi "Hash bcrypt généré avec succès"
-
-cat > "$NR_ADMIN_AUTH_FILE" << JSONEOF
-{
-  "type": "credentials",
-  "users": [
-    {
-      "username": "${NR_ADMIN_USER}",
-      "password": "${HASH}",
-      "permissions": "*"
-    }
-  ]
-}
-JSONEOF
-
-logi "nr_adminauth.json créé : accès avec user=${NR_ADMIN_USER}"
 
 # ---------- Gestion du flows.json ----------
-# Logique :
-#   - Première installation (pas de flows.json dans /data) -> copie depuis l'addon
-#   - Déjà installé -> on NE TOUCHE PAS au flows existant (préserve les modifs utilisateur)
-#   Dans les deux cas on met à jour MQTT et les ports serial configurés
-
 if [ ! -f /data/flows.json ]; then
   logi "Première installation : copie de flows.json depuis l'addon"
   cp /addon/flows.json /data/flows.json
@@ -132,13 +102,10 @@ fi
 tmp="/data/flows.tmp.json"
 
 # ---------- Injection des ports serial configurés ----------
-# On met à jour UNIQUEMENT les noeuds serial-port par leur ID fixe.
-# On ne supprime JAMAIS les noeuds serial-port ou serial in/out.
-#
 # IDs fixes des noeuds serial-port dans flows.json :
 #   SERIAL_1 -> c546b54ae425b9d2
-#   SERIAL_2 -> b2e3f4a5c6d7e8f9
-#   SERIAL_3 -> 55a40ce3e960db15
+#   SERIAL_2 -> 55a40ce3e960db15
+#   SERIAL_3 -> 39e06a015d18096d
 
 logi "Mise à jour des ports serial dans flows.json..."
 
