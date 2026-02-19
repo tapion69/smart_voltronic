@@ -7,12 +7,27 @@ module.exports = {
   credentialSecret: false,
 
   // 🔐 Authentification obligatoire pour accéder à l'éditeur Node-RED
-  // Mot de passe hashé bcrypt généré au démarrage par run.sh
-  // Le fichier /data/nr_adminauth.json contient le hash à jour
-  adminAuth: require('/data/nr_adminauth.json'),
+  // Seul l'administrateur connaît le mot de passe (jamais visible dans HA)
+  // Le hash bcrypt ci-dessous ne permet pas de retrouver le mot de passe en clair
+  adminAuth: {
+    type: "credentials",
+    users: [{
+      username: "pi",
+      password: "$2a$08$uGLFsGppdWnckZpomdNQveucw.zh8bkSWDO0Gnzj4Z0asqj91KKge",
+      permissions: "*"
+    }]
+  },
 
   nodesDir: ["/opt/node_modules"],
   editorTheme: {
     projects: { enabled: false }
+  },
+
+  logging: {
+    console: {
+      level: "warn",
+      metrics: false,
+      audit: false
+    }
   }
 };
