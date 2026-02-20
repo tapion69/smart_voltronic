@@ -147,12 +147,11 @@ Après chaque modification :
 
 ---
 
-# 📄 Liste complète des paramètres
+## 📄 Liste complète des paramètres
 
-La liste détaillée des capteurs, paramètres et entités exposés est disponible dans :
+La liste détaillée des capteurs et paramètres est disponible ici :
 
-**PARAMETERS.md**
-
+👉 https://github.com/TON_GITHUB/smart-voltronic-addon/blob/main/smart-voltronic/PARAMETERS.md](https://github.com/tapion69/smart-voltronic/blob/main/smart-voltronic/PARAMETERS.md
 ---
 
 # 🧩 À compléter
