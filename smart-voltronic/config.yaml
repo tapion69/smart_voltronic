@@ -2,20 +2,24 @@ name: "Smart Voltronic Node-RED"
 version: "1.2.7"
 slug: smart_voltronic
 description: "Node-RED Voltronic plug & play: flow mis à jour via MAJ add-on"
+
 arch:
   - aarch64
   - amd64
   - armv7
   - armhf
   - i386
+
 startup: services
 boot: auto
 init: false
 uart: true
+
 ports:
   1892/tcp: 1892
-# webui supprimé : accès uniquement via http://<ip-ha>:1892
+
 panel_icon: mdi:solar-power
+
 options:
   serial_ports:
     - "/dev/serial/by-id/CHANGE-ME-1"
@@ -25,6 +29,8 @@ options:
   mqtt_port: 1883
   mqtt_user: ""
   mqtt_pass: ""
+  send_bip: true   # 🔔 NEW OPTION
+
 schema:
   serial_ports:
     - str
@@ -34,3 +40,4 @@ schema:
   mqtt_port: int
   mqtt_user: str
   mqtt_pass: password
+  send_bip: bool   # 🔔 NEW OPTION
