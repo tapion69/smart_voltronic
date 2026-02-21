@@ -63,11 +63,11 @@ Only **TX / RX / GND** are required.
 
 ## 🪛 Example finished cable
 
-![RJ45 DB9 cable](docs/images/cable-rj45-db9.jpg)
+![RJ45 DB9 cable](https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/cable-rj45-db9.jpg)
 
 Inside the RJ45 connector, only **3 wires are connected**:
 
-![RJ45 wiring close-up](docs/images/cable-rj45-inside.jpg)
+![RJ45 wiring close-up](https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/cable-rj45-inside.jpg)
 
 ---
 
@@ -82,7 +82,7 @@ Recommended chipsets:
 
 Example adapter:
 
-![USB RS232 adapter](docs/images/usb-rs232-adapter.png)
+![USB RS232 adapter](https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/usb-rs232-adapter.png)
 
 ---
 
