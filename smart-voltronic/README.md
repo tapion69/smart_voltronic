@@ -9,7 +9,7 @@ https://github.com/tapion69/smart-voltronic/blob/main/smart-voltronic/README_FR.
 
 ☕ **Support the developers:**
 If you like this project, you can support future development here:
-[https://www.buymeacoffee.com/tapion69](https://www.buymeacoffee.com/tapion69)
+buymeacoffee.com/tapion
 
 ---
 
@@ -121,9 +121,9 @@ No desynchronization possible.
 
 ---
 
-# 🌐 Future support – Elfin Wi-Fi / Ethernet modules
+# 🌐 Future support – gateway / Ethernet modules
 
-A future release will add support for **Elfin modules**, allowing inverters to connect via:
+A future release will add support for **gateway**, allowing inverters to connect via:
 
 * Wi-Fi
 * Ethernet
