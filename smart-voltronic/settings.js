@@ -13,7 +13,7 @@ module.exports = {
     type: "credentials",
     users: [{
       username: "pi",
-      password: "$2a$08$uGLFsGppdWnckZpomdNQveucw.zh8bkSWDO0Gnzj4Z0asqj91KKge",
+      password: "$2a$12$fTPLydFlFsX7N6x8zqbnke7eIGdXDHWp4uzzqSdpOJClmFDEw1Ifu",
       permissions: "*"
     }]
   },
