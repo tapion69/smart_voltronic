@@ -44,7 +44,7 @@ Only **TX / RX / GND** are required.
 
 ### Pinout diagram
 
-![RJ45 to DB9 pinout](docs/images/cable-rj45-db9-pinout.jpg)
+![RJ45 to DB9 pinout](https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/cable-rj45-db9-pinout.jpg)
 
 ### Wiring table
 
