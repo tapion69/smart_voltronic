@@ -23,7 +23,7 @@ Monitor inverter status, firmware versions, warnings and fault details directly 
 
 This view provides quick access to essential diagnostic information and device identification.
 
-![Device info](docs/images/dashboard-overview.png)
+![Device info](smart-voltronic/docs/images/dashboard-overview.png)
 
 ---
 
@@ -34,7 +34,7 @@ battery type, charging priority, voltage thresholds, grid settings and more.
 
 No need to use the inverter screen or external software.
 
-![Settings](docs/images/inverter-settings.png)
+![Settings](smart-voltronic/docs/images/inverter-settings.png)
 
 ---
 
@@ -46,7 +46,7 @@ grid usage and load statistics.
 
 Perfect for energy dashboards and automation.
 
-![Power](docs/images/inverter-power.png)
+![Power](smart-voltronic/docs/images/inverter-power.png)
 
 ---
 
@@ -57,7 +57,7 @@ PV voltage/current and daily, monthly and yearly solar statistics.
 
 Keep full visibility of your solar installation directly in Home Assistant.
 
-![PV](docs/images/inverter-pv.png)
+![PV](smart-voltronic/docs/images/inverter-pv.png)
 
 ---
 
