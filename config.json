@@ -1,6 +1,6 @@
 {
   "name": "Smart Voltronic Node-RED",
-  "version": "1.0.0",
+  "version": "1.3.7",
   "slug": "smart_voltronic",
   "description": "Node-RED Voltronic inverter bridge to MQTT",
   "startup": "services",
