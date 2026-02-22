@@ -8,6 +8,41 @@ If you like this project, you can support future development here:
 https://ko-fi.com/tapion69
 
 ---
+## 📸 Screenshots
+
+### 🔎 Device information & status
+
+Monitor inverter status, firmware, warnings and fault details directly in Home Assistant.
+
+![Device info](docs/images/dashboard-overview.png)
+
+---
+
+### ⚙️ Inverter settings from Home Assistant
+
+Change key inverter parameters directly from Home Assistant UI:
+battery type, charging priority, voltages, grid settings and more.
+
+![Settings](docs/images/inverter-settings.png)
+
+---
+
+### ⚡ Real-time power monitoring
+
+Track all critical electrical values in real time:
+AC output, battery charge/discharge, grid usage and load statistics.
+
+![Power](docs/images/inverter-power.png)
+
+---
+
+### ☀️ Solar production tracking
+
+Monitor PV production, MPPT inputs, daily/monthly/yearly solar statistics.
+
+![PV](docs/images/inverter-pv.png)
+
+---
 
 Home Assistant add-on designed to **monitor and control up to 3 Voltronic / Axpert inverters**.
 
