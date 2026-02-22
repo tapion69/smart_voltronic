@@ -5,7 +5,7 @@
 
 ☕ **Soutenir le développement :**
 Si vous aimez ce projet, vous pouvez soutenir son évolution ici :
-[https://buymeacoffee.com/tapion](https://buymeacoffee.com/tapion)
+https://ko-fi.com/tapion69
 
 ---
 
