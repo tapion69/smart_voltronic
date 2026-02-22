@@ -21,7 +21,7 @@ Compatible with most models using the Voltronic protocol (Axpert, VM, MKS, MAX, 
 
 Monitor inverter status, firmware, warnings and fault details directly in Home Assistant.
 
-![Device info](images/dashboard-overview.png)
+![Device info](docs/images/dashboard-overview.png)
 
 ---
 
@@ -30,7 +30,7 @@ Monitor inverter status, firmware, warnings and fault details directly in Home A
 Change key inverter parameters directly from Home Assistant UI:
 battery type, charging priority, voltages, grid settings and more.
 
-![Settings](images/inverter-settings.png)
+![Settings](docs/images/inverter-settings.png)
 
 ---
 
@@ -39,7 +39,7 @@ battery type, charging priority, voltages, grid settings and more.
 Track all critical electrical values in real time:
 AC output, battery charge/discharge, grid usage and load statistics.
 
-![Power](images/inverter-power.png)
+![Power](docs/images/inverter-power.png)
 
 ---
 
@@ -47,7 +47,8 @@ AC output, battery charge/discharge, grid usage and load statistics.
 
 Monitor PV production, MPPT inputs, daily/monthly/yearly solar statistics.
 
-![PV](images/inverter-pv.png)
+![PV](docs/images/inverter-pv.png)
+
 
 
 # 🔧 Installation – RS232 Cable & USB Adapter
