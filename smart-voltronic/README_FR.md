@@ -294,7 +294,7 @@ Ouvrez une **issue GitHub** pour signaler un bug ou proposer une fonctionnalité
 
 Projet open-source en évolution.
 Contributions et retours bienvenus.
-
+-
 ---
 
 **Pilotage intelligent des onduleurs dans Home Assistant 🚀**
