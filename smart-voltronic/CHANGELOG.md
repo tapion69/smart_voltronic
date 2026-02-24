@@ -1,5 +1,18 @@
 # Changelog – Smart Voltronic Add-on
 
+## v1.3.9
+
+### ✨ New features
+- Added **daily battery energy sensors**:
+  - Battery charge today (kWh)
+  - Battery discharge today (kWh)
+- These sensors are now **automatically created** by the add-on (no Home Assistant configuration required).
+
+### ℹ️ Notes
+- Daily battery energy values are **calculated by the add-on** from real-time power measurements.
+- These values are **not provided directly by the inverter**.
+- Automatic reset at midnight (local time).
+
 ## v1.3.8
 
 ### 🐞 Fixes
