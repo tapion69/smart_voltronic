@@ -1,5 +1,15 @@
 # Changelog – Smart Voltronic Add-on
 
+## v1.4.1
+
+### 🐞 Fixes
+- Fixed sensors resetting to `0` or `unknown` after Home Assistant or add-on restart.
+- MQTT state topic is now published with **retain enabled**.
+
+### 🚀 Improvements
+- Home Assistant now restores the **last known inverter values instantly** after restart.
+- Improved overall reliability and startup behavior.
+
 ## v1.4.0
 
 ### ✨ New features
