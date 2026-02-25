@@ -1,5 +1,17 @@
 # Changelog – Smart Voltronic Add-on
 
+## v1.4.0
+
+### ✨ New features
+- Added new **Global Battery Current** sensor (A).
+- The sensor provides a **signed current value**:
+  - Positive → battery charging  
+  - Negative → battery discharging
+- Automatically created via MQTT Discovery (no Home Assistant setup required).
+
+### ⚙️ Improvements
+- Improved battery monitoring with clearer charge/discharge visibility.
+
 ## v1.3.9
 
 ### ✨ New features
