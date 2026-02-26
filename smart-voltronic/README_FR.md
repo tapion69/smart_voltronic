@@ -5,6 +5,7 @@
 
 ☕ **Soutenir le développement :**
 Si vous aimez ce projet, vous pouvez soutenir son évolution ici :
+
 <a href="https://ko-fi.com/tapion69">
   <img src="https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/kofi-button.png" width="300">
 </a>
