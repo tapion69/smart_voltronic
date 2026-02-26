@@ -1,5 +1,15 @@
 # Changelog – Smart Voltronic Add-on
 
+## v1.4.2
+
+### ✨ New features
+- Added new **Inverter Output Current** sensor (A).
+- This sensor estimates the AC output current using inverter power and voltage.
+
+### ℹ️ Notes
+- The inverter does **not provide this value directly**.
+- The current is **calculated by the add-on** using real-time measurements (Power ÷ Voltage).
+
 ## v1.4.1
 
 ### 🐞 Fixes
