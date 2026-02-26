@@ -4,11 +4,11 @@
 [https://github.com/tapion69/smart-voltronic/blob/main/smart-voltronic/README_FR.md](https://github.com/tapion69/smart-voltronic/blob/main/smart-voltronic/README_FR.md)
 
 ☕ **Support the developers:**
-If you like this project, you can support future development here:
-<a href="https://ko-fi.com/tapion69">
-  <img src="https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/kofi-button.png" width="220">
-</a>
+If you like this project, you can support future development here: 
 
+<a href="https://ko-fi.com/tapion69">
+  <img src="https://raw.githubusercontent.com/tapion69/smart-voltronic/main/smart-voltronic/docs/images/kofi-button.png" width="200">
+</a>
 ---
 
 Home Assistant add-on designed to **monitor and control up to 3 Voltronic / Axpert inverters**.
