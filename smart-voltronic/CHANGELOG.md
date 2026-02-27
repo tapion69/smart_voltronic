@@ -1,5 +1,21 @@
 # Changelog – Smart Voltronic Add-on
 
+## v1.4.3
+
+### ✨ New features
+- MQTT Discovery is now **dynamic based on configured inverters**.
+- Entities are created **only for configured serial ports**.
+- Prevents Home Assistant from creating unused inverter devices.
+
+### ⚙️ Improvements
+- Refactored MQTT Discovery code to a **generic multi-inverter architecture**.
+- Removed duplicated discovery logic for inverter 1/2/3.
+- Easier maintenance and future feature additions.
+
+### 🚀 Reliability
+- Prevents ghost devices and unused entities when only one inverter is connected.
+- Ensures Home Assistant device list always matches the real hardware configuration.
+
 ## v1.4.2
 
 ### ✨ New features
