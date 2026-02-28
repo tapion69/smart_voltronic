@@ -1,0 +1,32 @@
+configuration:
+  serial_ports:
+    name: Serial ports
+    description: "Serial USB ports connected to the inverters."
+
+  mqtt_host:
+    name: MQTT host
+    description: "MQTT broker address."
+
+  mqtt_port:
+    name: MQTT port
+    description: "MQTT broker port."
+
+  mqtt_user:
+    name: MQTT username
+    description: "MQTT username (leave empty if not required)."
+
+  mqtt_pass:
+    name: MQTT password
+    description: "MQTT password."
+
+  send_bip:
+    name: Send inverter beep
+    description: "Play a beep on the inverter when sending commands."
+
+  timezone_mode:
+    name: Timezone
+    description: "Select your timezone (used for daily energy reset)."
+
+  timezone_custom:
+    name: Custom timezone
+    description: "Only used if CUSTOM is selected. Example: Europe/Athens"
