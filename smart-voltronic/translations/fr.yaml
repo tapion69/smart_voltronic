@@ -1,0 +1,32 @@
+configuration:
+  serial_ports:
+    name: Ports série
+    description: "Ports USB série connectés aux onduleurs."
+
+  mqtt_host:
+    name: Hôte MQTT
+    description: "Adresse du broker MQTT."
+
+  mqtt_port:
+    name: Port MQTT
+    description: "Port du broker MQTT."
+
+  mqtt_user:
+    name: Utilisateur MQTT
+    description: "Utilisateur MQTT (laisser vide si inutile)."
+
+  mqtt_pass:
+    name: Mot de passe MQTT
+    description: "Mot de passe MQTT."
+
+  send_bip:
+    name: Bip de l’onduleur
+    description: "Fait sonner l’onduleur lors de l’envoi de commandes."
+
+  timezone_mode:
+    name: Fuseau horaire
+    description: "Choisissez votre fuseau horaire (utilisé pour le reset quotidien)."
+
+  timezone_custom:
+    name: Fuseau horaire personnalisé
+    description: "Utilisé uniquement si CUSTOM est sélectionné. Exemple : Europe/Athens"
