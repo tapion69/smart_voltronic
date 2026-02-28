@@ -31,8 +31,6 @@
 
 ---
 
-Si tu veux une version un peu plus “marketing” ou plus technique (orientée développeurs), je peux aussi te la reformuler 👌
-
 ## v1.4.3
 
 ### ✨ New features
