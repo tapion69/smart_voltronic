@@ -53,6 +53,24 @@ if [ -z "${MQTT_USER}" ] || [ -z "${MQTT_PASS}" ]; then
   exit 1
 fi
 
+# ---------- Timezone (options.json) ----------
+TZ_MODE="$(jq -r '.timezone_mode // "UTC"' "$OPTS")"
+TZ_CUSTOM="$(jq -r '.timezone_custom // "UTC"' "$OPTS")"
+
+if [ "$TZ_MODE" = "CUSTOM" ]; then
+  ADDON_TIMEZONE="$TZ_CUSTOM"
+else
+  ADDON_TIMEZONE="$TZ_MODE"
+fi
+
+# sécurité si champ vide
+if [ -z "${ADDON_TIMEZONE:-}" ] || [ "$ADDON_TIMEZONE" = "null" ]; then
+  ADDON_TIMEZONE="UTC"
+fi
+
+export ADDON_TIMEZONE
+logi "Timezone (options.json): $ADDON_TIMEZONE"
+
 # ---------- Serial ports ----------
 SERIAL_1="$(jq -r '.serial_ports[0] // ""' "$OPTS")"
 SERIAL_2="$(jq -r '.serial_ports[1] // ""' "$OPTS")"
