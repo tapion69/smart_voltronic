@@ -1,5 +1,8 @@
 # Changelog – Smart Voltronic Add-on
 
+## 🔄 Version 1.4.6
+* Bug fixe
+
 ## 🔄 Version 1.4.5
 
 ### 🌍 Added Timezone Support
