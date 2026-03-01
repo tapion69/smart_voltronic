@@ -21,46 +21,51 @@ ports:
 panel_icon: mdi:solar-power
 
 options:
-  # =========================
+  # ============================================================
   # ⚡ ONDULEUR 1
-  # =========================
-  inv1_link: "serial"                 # serial | gateway
+  # ============================================================
+  inv1_link: "serial"
   inv1_serial_port: "/dev/serial/by-id/CHANGE-ME-1"
   inv1_gateway_host: ""
   inv1_gateway_port: 8899
 
-  # =========================
+  # ============================================================
   # ⚡ ONDULEUR 2
-  # =========================
+  # ============================================================
   inv2_link: "serial"
   inv2_serial_port: "/dev/serial/by-id/CHANGE-ME-2"
   inv2_gateway_host: ""
   inv2_gateway_port: 8899
 
-  # =========================
+  # ============================================================
   # ⚡ ONDULEUR 3
-  # =========================
+  # ============================================================
   inv3_link: "serial"
   inv3_serial_port: "/dev/serial/by-id/CHANGE-ME-3"
   inv3_gateway_host: ""
   inv3_gateway_port: 8899
 
-  # =========================
-  # 📡 MQTT
-  # =========================
+  # ============================================================
+  # 📡 MQTT CONFIGURATION
+  # ============================================================
+  mqtt_section: "────────── MQTT CONFIGURATION ──────────"
   mqtt_host: "core-mosquitto"
   mqtt_port: 1883
   mqtt_user: ""
   mqtt_pass: ""
 
-  # 🔔 Option
+  # ============================================================
+  # 🔔 OPTIONS
+  # ============================================================
   send_bip: true
 
-  # =========================
-  # 🌍 Timezone
-  # =========================
+  # ============================================================
+  # 🌍 TIMEZONE
+  # ============================================================
+  timezone_section: "────────── TIMEZONE ──────────"
   timezone_mode: "Europe/Paris"
   timezone_custom: "UTC"
+
 
 schema:
   # Onduleur 1
@@ -81,14 +86,20 @@ schema:
   inv3_gateway_host: str?
   inv3_gateway_port: int?
 
+  # Séparateur MQTT
+  mqtt_section: str?
+
   # MQTT
   mqtt_host: str
   mqtt_port: int
   mqtt_user: str
   mqtt_pass: password
 
-  # Option
+  # Options
   send_bip: bool
+
+  # Séparateur Timezone
+  timezone_section: str?
 
   # Timezone
   timezone_mode: list(Europe/Paris|Europe/Berlin|Europe/Brussels|Europe/Madrid|Europe/Rome|Europe/London|America/New_York|America/Chicago|America/Los_Angeles|America/Montreal|Asia/Dubai|Asia/Tokyo|Australia/Sydney|CUSTOM)
