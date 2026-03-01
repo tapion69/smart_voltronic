@@ -1,5 +1,5 @@
 name: "Smart Voltronic DEV"
-version: "1.0.1"
+version: "1.0.2"
 slug: "smart_voltronic_dev"
 description: "⚠️ Development version – unstable and for testing only"
 
@@ -22,33 +22,33 @@ panel_icon: mdi:solar-power
 
 options:
   # =========================
-  # 🔌 SERIAL PORTS (used when invX_link = serial)
+  # ⚡ ONDULEUR 1
   # =========================
-  serial_ports:
-    - "/dev/serial/by-id/CHANGE-ME-1"
-    - "/dev/serial/by-id/CHANGE-ME-2"
-    - "/dev/serial/by-id/CHANGE-ME-3"
-
-  # =========================
-  # 🌐 INVERTER 1 CONNECTION
-  # =========================
-  inv1_link: "serial"        # serial | gateway
-  inv1_gateway_host: ""      # ex: 192.168.1.40
+  inv1_link: "serial"           # serial | gateway
+  inv1_gateway_host: ""         # ex: 192.168.1.40
   inv1_gateway_port: 8899
 
   # =========================
-  # 🌐 INVERTER 2 CONNECTION
+  # ⚡ ONDULEUR 2
   # =========================
   inv2_link: "serial"
   inv2_gateway_host: ""
   inv2_gateway_port: 8899
 
   # =========================
-  # 🌐 INVERTER 3 CONNECTION
+  # ⚡ ONDULEUR 3
   # =========================
   inv3_link: "serial"
   inv3_gateway_host: ""
   inv3_gateway_port: 8899
+
+  # =========================
+  # 🔌 PORTS SÉRIE (utilisés si invX_link = serial)
+  # =========================
+  serial_ports:
+    - "/dev/serial/by-id/CHANGE-ME-1"
+    - "/dev/serial/by-id/CHANGE-ME-2"
+    - "/dev/serial/by-id/CHANGE-ME-3"
 
   # =========================
   # 📡 MQTT
@@ -58,33 +58,36 @@ options:
   mqtt_user: ""
   mqtt_pass: ""
 
-  # 🔔 NEW OPTION
+  # 🔔 Option
   send_bip: true
 
+  # =========================
   # 🌍 Timezone
+  # =========================
   timezone_mode: "Europe/Paris"
   timezone_custom: "UTC"
 
 schema:
-  serial_ports:
-    - str
-    - str?
-    - str?
-
-  # Inverter 1
+  # Onduleur 1
   inv1_link: list(serial|gateway)
   inv1_gateway_host: str?
   inv1_gateway_port: int?
 
-  # Inverter 2
+  # Onduleur 2
   inv2_link: list(serial|gateway)
   inv2_gateway_host: str?
   inv2_gateway_port: int?
 
-  # Inverter 3
+  # Onduleur 3
   inv3_link: list(serial|gateway)
   inv3_gateway_host: str?
   inv3_gateway_port: int?
+
+  # Ports série
+  serial_ports:
+    - str
+    - str?
+    - str?
 
   # MQTT
   mqtt_host: str
@@ -92,9 +95,9 @@ schema:
   mqtt_user: str
   mqtt_pass: password
 
-  # 🔔 NEW OPTION
+  # Option
   send_bip: bool
 
-  # 🌍 Timezone (IMPORTANT: keep list() on ONE line)
+  # Timezone
   timezone_mode: list(Europe/Paris|Europe/Berlin|Europe/Brussels|Europe/Madrid|Europe/Rome|Europe/London|America/New_York|America/Chicago|America/Los_Angeles|America/Montreal|Asia/Dubai|Asia/Tokyo|Australia/Sydney|CUSTOM)
   timezone_custom: str?
