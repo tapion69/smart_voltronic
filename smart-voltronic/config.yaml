@@ -1,5 +1,5 @@
 name: "Smart Voltronic DEV"
-version: "1.0.2"
+version: "1.0.3"
 slug: "smart_voltronic_dev"
 description: "⚠️ Development version – unstable and for testing only"
 
@@ -24,14 +24,16 @@ options:
   # =========================
   # ⚡ ONDULEUR 1
   # =========================
-  inv1_link: "serial"           # serial | gateway
-  inv1_gateway_host: ""         # ex: 192.168.1.40
+  inv1_link: "serial"                 # serial | gateway
+  inv1_serial_port: "/dev/serial/by-id/CHANGE-ME-1"
+  inv1_gateway_host: ""
   inv1_gateway_port: 8899
 
   # =========================
   # ⚡ ONDULEUR 2
   # =========================
   inv2_link: "serial"
+  inv2_serial_port: "/dev/serial/by-id/CHANGE-ME-2"
   inv2_gateway_host: ""
   inv2_gateway_port: 8899
 
@@ -39,16 +41,9 @@ options:
   # ⚡ ONDULEUR 3
   # =========================
   inv3_link: "serial"
+  inv3_serial_port: "/dev/serial/by-id/CHANGE-ME-3"
   inv3_gateway_host: ""
   inv3_gateway_port: 8899
-
-  # =========================
-  # 🔌 PORTS SÉRIE (utilisés si invX_link = serial)
-  # =========================
-  serial_ports:
-    - "/dev/serial/by-id/CHANGE-ME-1"
-    - "/dev/serial/by-id/CHANGE-ME-2"
-    - "/dev/serial/by-id/CHANGE-ME-3"
 
   # =========================
   # 📡 MQTT
@@ -70,24 +65,21 @@ options:
 schema:
   # Onduleur 1
   inv1_link: list(serial|gateway)
+  inv1_serial_port: str?
   inv1_gateway_host: str?
   inv1_gateway_port: int?
 
   # Onduleur 2
   inv2_link: list(serial|gateway)
+  inv2_serial_port: str?
   inv2_gateway_host: str?
   inv2_gateway_port: int?
 
   # Onduleur 3
   inv3_link: list(serial|gateway)
+  inv3_serial_port: str?
   inv3_gateway_host: str?
   inv3_gateway_port: int?
-
-  # Ports série
-  serial_ports:
-    - str
-    - str?
-    - str?
 
   # MQTT
   mqtt_host: str
