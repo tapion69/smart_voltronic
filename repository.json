@@ -1,6 +1,8 @@
-name: Smart Voltronic DEV repository
-url: https://github.com/tapion69/smart-voltronic
-maintainer: tapion
-
-addons:
-  - smart-voltronic
+{
+  "name": "Smart Voltronic DEV repository",
+  "url": "https://github.com/tapion69/smart-voltronic",
+  "maintainer": "tapion",
+  "addons": [
+    "smart-voltronic"
+  ]
+}
