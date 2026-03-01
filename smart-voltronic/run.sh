@@ -142,6 +142,55 @@ update_serial_port "c546b54ae425b9d2" "$SERIAL_1" "SERIAL_1"
 update_serial_port "55a40ce3e960db15" "$SERIAL_2" "SERIAL_2"
 update_serial_port "39e06a015d18096d" "$SERIAL_3" "SERIAL_3"
 
+# ---------- Inverter link mode (serial | gateway) ----------
+INV1_LINK="$(jq -r '.inv1_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
+INV2_LINK="$(jq -r '.inv2_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
+INV3_LINK="$(jq -r '.inv3_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
+
+INV1_GW_HOST="$(jq -r '.inv1_gateway_host // ""' "$OPTS")"
+INV2_GW_HOST="$(jq -r '.inv2_gateway_host // ""' "$OPTS")"
+INV3_GW_HOST="$(jq -r '.inv3_gateway_host // ""' "$OPTS")"
+
+INV1_GW_PORT="$(jq_int_or '.inv1_gateway_port' 8899)"
+INV2_GW_PORT="$(jq_int_or '.inv2_gateway_port' 8899)"
+INV3_GW_PORT="$(jq_int_or '.inv3_gateway_port' 8899)"
+
+# Normalise / sécurise les valeurs
+sanitize_link() {
+  local v="$1"
+  case "$v" in
+    serial|gateway) echo "$v" ;;
+    *) echo "serial" ;;
+  esac
+}
+
+INV1_LINK="$(sanitize_link "$INV1_LINK")"
+INV2_LINK="$(sanitize_link "$INV2_LINK")"
+INV3_LINK="$(sanitize_link "$INV3_LINK")"
+
+logi "Inv1 link: $INV1_LINK ${INV1_LINK/gateway/(host: ${INV1_GW_HOST:-<empty>}:${INV1_GW_PORT})}"
+logi "Inv2 link: $INV2_LINK ${INV2_LINK/gateway/(host: ${INV2_GW_HOST:-<empty>}:${INV2_GW_PORT})}"
+logi "Inv3 link: $INV3_LINK ${INV3_LINK/gateway/(host: ${INV3_GW_HOST:-<empty>}:${INV3_GW_PORT})}"
+
+# Validation : si gateway, host obligatoire
+if [ "$INV1_LINK" = "gateway" ] && [ -z "${INV1_GW_HOST}" ]; then
+  loge "Inv1: inv1_link=gateway mais inv1_gateway_host est vide."
+  exit 1
+fi
+if [ "$INV2_LINK" = "gateway" ] && [ -z "${INV2_GW_HOST}" ]; then
+  loge "Inv2: inv2_link=gateway mais inv2_gateway_host est vide."
+  exit 1
+fi
+if [ "$INV3_LINK" = "gateway" ] && [ -z "${INV3_GW_HOST}" ]; then
+  loge "Inv3: inv3_link=gateway mais inv3_gateway_host est vide."
+  exit 1
+fi
+
+# Export pour Node-RED (env.get())
+export INV1_LINK INV2_LINK INV3_LINK
+export INV1_GW_HOST INV2_GW_HOST INV3_GW_HOST
+export INV1_GW_PORT INV2_GW_PORT INV3_GW_PORT
+
 # ---------- Injection MQTT dans le node mqtt-broker ----------
 if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
   loge 'Aucun mqtt-broker nommé "HA MQTT Broker" trouvé dans flows.json'
