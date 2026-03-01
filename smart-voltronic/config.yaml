@@ -1,7 +1,7 @@
-name: "Smart Voltronic Node-RED"
-version: "1.4.6"
-slug: smart_voltronic
-description: "Node-RED Voltronic plug & play: flow mis à jour via MAJ add-on"
+name: "Smart Voltronic DEV"
+version: "1.0.0"
+slug: "smart_voltronic_dev"
+description: "⚠️ Development version – unstable and for testing only"
 
 arch:
   - aarch64
