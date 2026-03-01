@@ -72,9 +72,9 @@ export ADDON_TIMEZONE
 logi "Timezone (options.json): $ADDON_TIMEZONE"
 
 # ---------- Serial ports ----------
-SERIAL_1="$(jq -r '.serial_ports[0] // ""' "$OPTS")"
-SERIAL_2="$(jq -r '.serial_ports[1] // ""' "$OPTS")"
-SERIAL_3="$(jq -r '.serial_ports[2] // ""' "$OPTS")"
+SERIAL_1="$(jq -r '.inv1_serial_port // ""' "$OPTS")"
+SERIAL_2="$(jq -r '.inv2_serial_port // ""' "$OPTS")"
+SERIAL_3="$(jq -r '.inv3_serial_port // ""' "$OPTS")"
 
 logi "Serial1: ${SERIAL_1:-<empty>}"
 logi "Serial2: ${SERIAL_2:-<empty>}"
