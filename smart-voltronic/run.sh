@@ -72,6 +72,7 @@ export ADDON_TIMEZONE
 logi "Timezone (options.json): $ADDON_TIMEZONE"
 
 # ---------- Serial ports ----------
+# (On ne change rien : tu utilises encore inv1_serial_port etc. dans ton flow actuel)
 SERIAL_1="$(jq -r '.inv1_serial_port // ""' "$OPTS")"
 SERIAL_2="$(jq -r '.inv2_serial_port // ""' "$OPTS")"
 SERIAL_3="$(jq -r '.inv3_serial_port // ""' "$OPTS")"
@@ -142,54 +143,80 @@ update_serial_port "c546b54ae425b9d2" "$SERIAL_1" "SERIAL_1"
 update_serial_port "55a40ce3e960db15" "$SERIAL_2" "SERIAL_2"
 update_serial_port "39e06a015d18096d" "$SERIAL_3" "SERIAL_3"
 
-# ---------- Inverter link mode (serial | gateway) ----------
-INV1_LINK="$(jq -r '.inv1_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
-INV2_LINK="$(jq -r '.inv2_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
-INV3_LINK="$(jq -r '.inv3_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
+# =====================================================================
+# ✅ MODIF NÉCESSAIRE : transport TCP (serial|tcp) + host/port depuis options
+#    + patch des placeholders __INVx_HOST__/__INVx_PORT__ dans flows.json
+# =====================================================================
 
-INV1_GW_HOST="$(jq -r '.inv1_gateway_host // ""' "$OPTS")"
-INV2_GW_HOST="$(jq -r '.inv2_gateway_host // ""' "$OPTS")"
-INV3_GW_HOST="$(jq -r '.inv3_gateway_host // ""' "$OPTS")"
-
-INV1_GW_PORT="$(jq_int_or '.inv1_gateway_port' 8899)"
-INV2_GW_PORT="$(jq_int_or '.inv2_gateway_port' 8899)"
-INV3_GW_PORT="$(jq_int_or '.inv3_gateway_port' 8899)"
-
-# Normalise / sécurise les valeurs
-sanitize_link() {
+sanitize_transport() {
   local v="$1"
   case "$v" in
-    serial|gateway) echo "$v" ;;
+    serial|tcp) echo "$v" ;;
     *) echo "serial" ;;
   esac
 }
 
-INV1_LINK="$(sanitize_link "$INV1_LINK")"
-INV2_LINK="$(sanitize_link "$INV2_LINK")"
-INV3_LINK="$(sanitize_link "$INV3_LINK")"
+INV1_TRANSPORT="$(jq -r '.inverter_1_transport // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
+INV2_TRANSPORT="$(jq -r '.inverter_2_transport // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
+INV3_TRANSPORT="$(jq -r '.inverter_3_transport // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
 
-logi "Inv1 link: $INV1_LINK ${INV1_LINK/gateway/(host: ${INV1_GW_HOST:-<empty>}:${INV1_GW_PORT})}"
-logi "Inv2 link: $INV2_LINK ${INV2_LINK/gateway/(host: ${INV2_GW_HOST:-<empty>}:${INV2_GW_PORT})}"
-logi "Inv3 link: $INV3_LINK ${INV3_LINK/gateway/(host: ${INV3_GW_HOST:-<empty>}:${INV3_GW_PORT})}"
+INV1_TRANSPORT="$(sanitize_transport "$INV1_TRANSPORT")"
+INV2_TRANSPORT="$(sanitize_transport "$INV2_TRANSPORT")"
+INV3_TRANSPORT="$(sanitize_transport "$INV3_TRANSPORT")"
 
-# Validation : si gateway, host obligatoire
-if [ "$INV1_LINK" = "gateway" ] && [ -z "${INV1_GW_HOST}" ]; then
-  loge "Inv1: inv1_link=gateway mais inv1_gateway_host est vide."
+INV1_HOST="$(jq -r '.inverter_1_host // ""' "$OPTS")"
+INV2_HOST="$(jq -r '.inverter_2_host // ""' "$OPTS")"
+INV3_HOST="$(jq -r '.inverter_3_host // ""' "$OPTS")"
+
+INV1_PORT="$(jq_int_or '.inverter_1_port' 8899)"
+INV2_PORT="$(jq_int_or '.inverter_2_port' 8899)"
+INV3_PORT="$(jq_int_or '.inverter_3_port' 8899)"
+
+logi "Inv1 transport: $INV1_TRANSPORT (host: ${INV1_HOST:-<empty>}:${INV1_PORT})"
+logi "Inv2 transport: $INV2_TRANSPORT (host: ${INV2_HOST:-<empty>}:${INV2_PORT})"
+logi "Inv3 transport: $INV3_TRANSPORT (host: ${INV3_HOST:-<empty>}:${INV3_PORT})"
+
+# Validation : si transport tcp, host obligatoire
+if [ "$INV1_TRANSPORT" = "tcp" ] && [ -z "${INV1_HOST}" ]; then
+  loge "Inv1: inverter_1_transport=tcp mais inverter_1_host est vide."
   exit 1
 fi
-if [ "$INV2_LINK" = "gateway" ] && [ -z "${INV2_GW_HOST}" ]; then
-  loge "Inv2: inv2_link=gateway mais inv2_gateway_host est vide."
+if [ "$INV2_TRANSPORT" = "tcp" ] && [ -z "${INV2_HOST}" ]; then
+  loge "Inv2: inverter_2_transport=tcp mais inverter_2_host est vide."
   exit 1
 fi
-if [ "$INV3_LINK" = "gateway" ] && [ -z "${INV3_GW_HOST}" ]; then
-  loge "Inv3: inv3_link=gateway mais inv3_gateway_host est vide."
+if [ "$INV3_TRANSPORT" = "tcp" ] && [ -z "${INV3_HOST}" ]; then
+  loge "Inv3: inverter_3_transport=tcp mais inverter_3_host est vide."
   exit 1
 fi
 
 # Export pour Node-RED (env.get())
-export INV1_LINK INV2_LINK INV3_LINK
-export INV1_GW_HOST INV2_GW_HOST INV3_GW_HOST
-export INV1_GW_PORT INV2_GW_PORT INV3_GW_PORT
+export INV1_TRANSPORT INV2_TRANSPORT INV3_TRANSPORT
+export INV1_HOST INV2_HOST INV3_HOST
+export INV1_PORT INV2_PORT INV3_PORT
+
+# Patch placeholders dans flows.json (nécessaire car tcp in/out lit host/port depuis la config du node)
+logi "Patch placeholders TCP (__INVx_HOST__/__INVx_PORT__) dans flows.json..."
+
+safe_sed() {
+  local needle="$1"
+  local value="$2"
+  # si value vide, on laisse le placeholder (utile si transport=serial)
+  if [ -z "${value}" ]; then
+    return 0
+  fi
+  # échappe / & pour sed
+  local esc
+  esc="$(printf '%s' "$value" | sed -e 's/[\/&]/\\&/g')"
+  sed -i "s/${needle}/${esc}/g" /data/flows.json
+}
+
+safe_sed "__INV1_HOST__" "$INV1_HOST"
+safe_sed "__INV1_PORT__" "$INV1_PORT"
+safe_sed "__INV2_HOST__" "$INV2_HOST"
+safe_sed "__INV2_PORT__" "$INV2_PORT"
+safe_sed "__INV3_HOST__" "$INV3_HOST"
+safe_sed "__INV3_PORT__" "$INV3_PORT"
 
 # ---------- Injection MQTT dans le node mqtt-broker ----------
 if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
@@ -238,6 +265,9 @@ jq -n \
   > /data/flows_cred.json
 
 logi "flows_cred.json créé avec succès"
+
+logi "Starting Node-RED sur le port 1892..."
+exec node-red --userDir /data --settings /addon/settings.js
 
 logi "Starting Node-RED sur le port 1892..."
 exec node-red --userDir /data --settings /addon/settings.js
