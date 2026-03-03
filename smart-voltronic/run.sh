@@ -63,7 +63,6 @@ else
   ADDON_TIMEZONE="$TZ_MODE"
 fi
 
-# sécurité si champ vide
 if [ -z "${ADDON_TIMEZONE:-}" ] || [ "$ADDON_TIMEZONE" = "null" ]; then
   ADDON_TIMEZONE="UTC"
 fi
@@ -136,17 +135,15 @@ update_serial_port "39e06a015d18096d" "$SERIAL_3" "SERIAL_3"
 # GATEWAY / SERIAL : lecture depuis config add-on
 # =====================================================================
 
-# gateway -> tcp pour Node-RED
 sanitize_transport() {
   local v="$1"
   case "$v" in
     serial)       echo "serial" ;;
-    gateway|tcp)  echo "tcp"    ;;
+    gateway|tcp)  echo "tcp" ;;
     *)            echo "serial" ;;
   esac
 }
 
-# Lecture du mode de connexion choisi par l'utilisateur
 INV1_LINK="$(jq -r '.inv1_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
 INV2_LINK="$(jq -r '.inv2_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
 INV3_LINK="$(jq -r '.inv3_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
@@ -155,7 +152,6 @@ INV1_TRANSPORT="$(sanitize_transport "$INV1_LINK")"
 INV2_TRANSPORT="$(sanitize_transport "$INV2_LINK")"
 INV3_TRANSPORT="$(sanitize_transport "$INV3_LINK")"
 
-# Lecture host et port gateway depuis la config add-on
 INV1_HOST="$(jq -r '.inv1_gateway_host // ""' "$OPTS")"
 INV2_HOST="$(jq -r '.inv2_gateway_host // ""' "$OPTS")"
 INV3_HOST="$(jq -r '.inv3_gateway_host // ""' "$OPTS")"
@@ -187,26 +183,46 @@ export INV1_TRANSPORT INV2_TRANSPORT INV3_TRANSPORT
 export INV1_HOST INV2_HOST INV3_HOST
 export INV1_PORT INV2_PORT INV3_PORT
 
-# Patch placeholders dans flows.json
-logi "Patch placeholders TCP (__INVx_HOST__ / __INVx_PORT__) dans flows.json..."
+# =====================================================================
+# PATCH TCP IN/OUT host/port dans flows.json (via jq + IDs fixes)
+# =====================================================================
 
-safe_sed() {
-  local needle="$1"
-  local value="$2"
-  if [ -z "${value}" ]; then
-    return 0
-  fi
-  local esc
-  esc="$(printf '%s' "$value" | sed -e 's/[\/&]/\\&/g')"
-  sed -i "s/${needle}/${esc}/g" /data/flows.json
+update_tcp_host_port() {
+  local node_id="$1"
+  local host="$2"
+  local port="$3"
+  local label="$4"
+
+  jq --arg id "$node_id" --arg host "$host" --arg port "$port" '
+    map(
+      if .id == $id then
+        .host = $host | .port = $port
+      else .
+      end
+    )
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+
+  logi "TCP ${label} -> host=${host} port=${port}"
 }
 
-safe_sed "__INV1_HOST__" "$INV1_HOST"
-safe_sed "__INV1_PORT__" "$INV1_PORT"
-safe_sed "__INV2_HOST__" "$INV2_HOST"
-safe_sed "__INV2_PORT__" "$INV2_PORT"
-safe_sed "__INV3_HOST__" "$INV3_HOST"
-safe_sed "__INV3_PORT__" "$INV3_PORT"
+# Pour éviter que les nodes TCP essaient de se connecter en mode serial :
+TCP1_HOST="$INV1_HOST"; TCP1_PORT="$INV1_PORT"
+TCP2_HOST="$INV2_HOST"; TCP2_PORT="$INV2_PORT"
+TCP3_HOST="$INV3_HOST"; TCP3_PORT="$INV3_PORT"
+
+if [ "$INV1_TRANSPORT" = "serial" ]; then TCP1_HOST="127.0.0.1"; TCP1_PORT="1"; fi
+if [ "$INV2_TRANSPORT" = "serial" ]; then TCP2_HOST="127.0.0.1"; TCP2_PORT="1"; fi
+if [ "$INV3_TRANSPORT" = "serial" ]; then TCP3_HOST="127.0.0.1"; TCP3_PORT="1"; fi
+
+# IDs fournis
+update_tcp_host_port "affc083c1b7614e8" "$TCP1_HOST" "$TCP1_PORT" "OUT1"
+update_tcp_host_port "860cc648606abc47" "$TCP1_HOST" "$TCP1_PORT" "IN1"
+
+update_tcp_host_port "faacf46b9ccb1349" "$TCP2_HOST" "$TCP2_PORT" "OUT2"
+update_tcp_host_port "676593474485375b" "$TCP2_HOST" "$TCP2_PORT" "IN2"
+
+update_tcp_host_port "edb28c0311499138" "$TCP3_HOST" "$TCP3_PORT" "OUT3"
+update_tcp_host_port "6178939eaeb81b59" "$TCP3_HOST" "$TCP3_PORT" "IN3"
 
 # ---------- Injection MQTT dans le node mqtt-broker ----------
 if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
@@ -227,8 +243,7 @@ jq \
       .broker=$host
       | .port=$port
       | .user=$user
-    else .
-    end
+    else . end
   )
   ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 
