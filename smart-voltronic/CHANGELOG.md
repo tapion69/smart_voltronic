@@ -1,5 +1,29 @@
 # Changelog – Smart Voltronic Add-on
 
+## 🔄 v1.4.7
+
+### ✨ New
+
+* Added support for **Elfin Ethernet/WiFi gateways**
+* Inverters can now be connected using either **Serial (USB/RS232)** or **Gateway (TCP/IP)**
+* New configuration options for each inverter:
+
+  * `serial` connection
+  * `gateway` connection (IP + port)
+
+### ⚙️ Improvements
+
+* Automatic TCP configuration for Elfin gateways
+* Dynamic transport selection (Serial or TCP) directly from add-on configuration
+* Improved startup script to apply network settings automatically
+* Better connection handling when switching between Serial and Gateway modes
+
+### 🛠 Internal
+
+* Refactored startup script to dynamically patch TCP nodes
+* Improved connection logic to prevent conflicts between Serial and TCP transports
+
+
 ## 🔄 Version 1.4.6
 * Bug fixe
 
