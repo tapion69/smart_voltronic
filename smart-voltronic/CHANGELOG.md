@@ -1,5 +1,29 @@
 # Changelog – Smart Voltronic Add-on
 
+## 1.4.9
+
+### Added
+- Added support for **24V battery systems**
+- New add-on configuration option to select **battery system voltage (24V / 48V)**
+
+### Improved
+- Home Assistant voltage parameter ranges now automatically adapt to the selected battery system
+  - **24V systems**
+    - Bulk: 24–30V
+    - Float: 24–30V
+    - Return grid voltage: 22–25.5V
+    - Re-discharge voltage: 24–29V
+    - Under voltage: 20–27V
+  - **48V systems**
+    - Existing ranges remain unchanged
+
+### Technical
+- MQTT Discovery updated to dynamically adjust voltage parameter limits based on battery system voltage
+- Added internal configuration handling for battery system detection
+
+## 🔄 v1.4.8
+* Bug fixe
+
 ## 🔄 v1.4.7
 
 ### ✨ New
