@@ -70,6 +70,22 @@ fi
 export ADDON_TIMEZONE
 logi "Timezone (options.json): $ADDON_TIMEZONE"
 
+# ---------- Battery system voltage (options.json) ----------
+# Attendu dans options.json :
+#   "battery_system_voltage": "24V" | "48V" | 24 | 48
+# Export env: BATTERY_SYSTEM_VOLTAGE=24|48 pour Node-RED (env.get)
+
+BATTERY_SYSTEM_VOLTAGE_RAW="$(jq -r '.battery_system_voltage // "48V"' "$OPTS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')"
+
+case "$BATTERY_SYSTEM_VOLTAGE_RAW" in
+  24|24V) BATTERY_SYSTEM_VOLTAGE="24" ;;
+  48|48V) BATTERY_SYSTEM_VOLTAGE="48" ;;
+  *)      BATTERY_SYSTEM_VOLTAGE="48" ;; # fallback safe
+esac
+
+export BATTERY_SYSTEM_VOLTAGE
+logi "Battery system voltage (options.json): ${BATTERY_SYSTEM_VOLTAGE}V"
+
 # ---------- Serial ports ----------
 SERIAL_1="$(jq -r '.inv1_serial_port // ""' "$OPTS")"
 SERIAL_2="$(jq -r '.inv2_serial_port // ""' "$OPTS")"
