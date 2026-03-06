@@ -1,5 +1,5 @@
 name: "Smart Voltronic Node-RED"
-version: "1.5.0"
+version: "1.5.1"
 slug: smart_voltronic
 description: "Node-RED Voltronic plug & play: flow mis à jour via MAJ add-on"
 
