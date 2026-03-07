@@ -224,11 +224,10 @@ update_tcp_host_port_by_name() {
 
 # ============================================================
 # Patch serial nodes PAR NAME
-# IMPORTANT: tes config nodes serial-port doivent avoir ces names
 # ============================================================
-update_serial_config_by_name "SERIAL_1" "$SERIAL_1" "SERIAL_1"
-update_serial_config_by_name "SERIAL_2" "$SERIAL_2" "SERIAL_2"
-update_serial_config_by_name "SERIAL_3" "$SERIAL_3" "SERIAL_3"
+update_serial_config_by_name "Serial inv 1" "$SERIAL_1" "SERIAL_1"
+update_serial_config_by_name "Serial inv 2" "$SERIAL_2" "SERIAL_2"
+update_serial_config_by_name "Serial inv 3" "$SERIAL_3" "SERIAL_3"
 
 # ============================================================
 # Patch TCP nodes PAR NAME
