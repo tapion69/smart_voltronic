@@ -1,6 +1,6 @@
 {
   "name": "Smart Voltronic Node-RED",
-  "version": "1.6.2",
+  "version": "1.6.1",
   "slug": "smart_voltronic",
   "description": "Node-RED Voltronic inverter bridge to MQTT",
   "startup": "services",
@@ -49,17 +49,17 @@
     "inverter_1_transport": "list(serial|tcp)",
     "inverter_1_host": "str?",
     "inverter_1_port": "int(1,65535)?",
-    "inverter_1_display_mode": "list(modern|legacy_usb_sub_sbu|legacy_uti_sol_sbu)",
+    "inverter_1_display_mode": "list(modern|legacy_usb_sub_sbu)",
 
     "inverter_2_transport": "list(serial|tcp)",
     "inverter_2_host": "str?",
     "inverter_2_port": "int(1,65535)?",
-    "inverter_2_display_mode": "list(modern|legacy_usb_sub_sbu|legacy_uti_sol_sbu)",
+    "inverter_2_display_mode": "list(modern|legacy_usb_sub_sbu)",
 
     "inverter_3_transport": "list(serial|tcp)",
     "inverter_3_host": "str?",
     "inverter_3_port": "int(1,65535)?",
-    "inverter_3_display_mode": "list(modern|legacy_usb_sub_sbu|legacy_uti_sol_sbu)",
+    "inverter_3_display_mode": "list(modern|legacy_usb_sub_sbu)",
 
     "timezone_mode": "list(UTC|Europe/Paris|CUSTOM)",
     "timezone_custom": "str?",
