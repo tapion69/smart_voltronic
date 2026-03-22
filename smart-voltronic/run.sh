@@ -47,6 +47,29 @@ sanitize_transport() {
 }
 
 # ============================================================
+# PREMIUM
+# ============================================================
+INSTANCE_FILE="/data/smart_voltronic_instance_id"
+
+if [ ! -f "$INSTANCE_FILE" ]; then
+  cat /proc/sys/kernel/random/uuid > "$INSTANCE_FILE"
+  logi "Premium: nouvel instance_id généré"
+fi
+
+SMART_VOLTRONIC_INSTANCE_ID="$(tr -d '\n\r' < "$INSTANCE_FILE")"
+SMART_VOLTRONIC_PREMIUM_KEY="$(jq -r '.premium_key // ""' "$OPTS")"
+
+export SMART_VOLTRONIC_INSTANCE_ID
+export SMART_VOLTRONIC_PREMIUM_KEY
+
+logi "Premium instance_id: $SMART_VOLTRONIC_INSTANCE_ID"
+if [ -n "$SMART_VOLTRONIC_PREMIUM_KEY" ]; then
+  logi "Premium key: configured"
+else
+  logi "Premium key: not configured"
+fi
+
+# ============================================================
 # MQTT
 # ============================================================
 MQTT_HOST="$(jq_str_or '.mqtt_host' '')"
