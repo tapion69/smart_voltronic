@@ -67,6 +67,12 @@ options:
   mqtt_pass: ""
 
   # ============================================================
+  # 👑 PREMIUM
+  # ============================================================
+  premium_section: "────────── PREMIUM ──────────"
+  premium_key: ""
+
+  # ============================================================
   # 🔔 OPTIONS
   # ============================================================
   send_bip: true
@@ -117,6 +123,12 @@ schema:
   mqtt_port: int
   mqtt_user: str
   mqtt_pass: password
+
+  # Séparateur Premium
+  premium_section: str?
+
+  # Premium
+  premium_key: str?
 
   # Options
   send_bip: bool
