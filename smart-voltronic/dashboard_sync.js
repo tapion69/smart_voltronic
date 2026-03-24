@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 "use strict";
 
-const WebSocket = require("ws");
-
 const action = process.argv[2] || "upsert";
 const b64 = process.argv[3] || "";
 const token = process.env.SUPERVISOR_TOKEN;
@@ -20,6 +18,14 @@ if (!token) {
     console.error(JSON.stringify({
         ok: false,
         error: "Supervisor token missing"
+    }));
+    process.exit(1);
+}
+
+if (typeof WebSocket === "undefined") {
+    console.error(JSON.stringify({
+        ok: false,
+        error: "Global WebSocket not available in this Node version"
     }));
     process.exit(1);
 }
@@ -67,6 +73,7 @@ function finishOk(extra = {}) {
         dashboard: urlPath,
         ...extra
     }));
+    try { ws.close(); } catch (_) {}
     process.exit(0);
 }
 
@@ -76,18 +83,20 @@ function finishErr(error) {
         action,
         error: String(error || "Unknown error")
     }));
+    try { ws.close(); } catch (_) {}
     process.exit(1);
 }
 
-ws.on("error", (err) => {
-    finishErr(err.message || err);
-});
+ws.onerror = (event) => {
+    const msg = event?.message || "WebSocket error";
+    finishErr(msg);
+};
 
-ws.on("message", (raw) => {
+ws.onmessage = (event) => {
     let msg;
 
     try {
-        msg = JSON.parse(raw.toString());
+        msg = JSON.parse(event.data.toString());
     } catch (e) {
         finishErr("Invalid websocket message");
         return;
@@ -129,9 +138,7 @@ ws.on("message", (raw) => {
         return;
     }
 
-    if (!authDone) {
-        return;
-    }
+    if (!authDone) return;
 
     if (action === "delete") {
         if (deleteSent && msg.success === true) {
@@ -148,29 +155,16 @@ ws.on("message", (raw) => {
         return;
     }
 
-    // Réponse à dashboards/create
     if (createSent && !saveSent) {
-        if (msg.success === true) {
-            saveSent = true;
-            send("lovelace/config/save", {
-                url_path: urlPath,
-                config: dashboardConfig
-            });
-            return;
-        }
-
-        if (msg.success === false) {
-            // Si le dashboard existe déjà, on tente quand même le save
-            saveSent = true;
-            send("lovelace/config/save", {
-                url_path: urlPath,
-                config: dashboardConfig
-            });
-            return;
-        }
+        // create ok ou create déjà existant -> on tente save
+        saveSent = true;
+        send("lovelace/config/save", {
+            url_path: urlPath,
+            config: dashboardConfig
+        });
+        return;
     }
 
-    // Réponse à config/save
     if (saveSent) {
         if (msg.success === true) {
             finishOk({ saved: true });
@@ -183,4 +177,4 @@ ws.on("message", (raw) => {
             return;
         }
     }
-});
+};
