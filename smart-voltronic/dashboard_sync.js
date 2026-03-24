@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 "use strict";
 
-const ACTION = process.argv[2] || "upsert";
+const WebSocket = require("ws");
+
+const action = process.argv[2] || "upsert";
 const b64 = process.argv[3] || "";
+const token = process.env.SUPERVISOR_TOKEN;
+const wsUrl = "ws://supervisor/core/websocket";
 
 if (!b64) {
     console.error(JSON.stringify({
@@ -12,8 +16,15 @@ if (!b64) {
     process.exit(1);
 }
 
-let input;
+if (!token) {
+    console.error(JSON.stringify({
+        ok: false,
+        error: "Supervisor token missing"
+    }));
+    process.exit(1);
+}
 
+let input;
 try {
     const json = Buffer.from(b64, "base64").toString("utf8");
     input = JSON.parse(json);
@@ -25,37 +36,35 @@ try {
     process.exit(1);
 }
 
-const TOKEN = process.env.SUPERVISOR_TOKEN;
+const dashboardMeta = input.dashboard_meta || {};
+const dashboardConfig = input.config || {};
+const urlPath = dashboardMeta.url_path || "smart-voltronic";
+const title = dashboardMeta.title || "Smart Voltronic";
+const icon = dashboardMeta.icon || "mdi:solar-power";
+const showInSidebar = dashboardMeta.show_in_sidebar !== false;
+const requireAdmin = !!dashboardMeta.require_admin;
 
-if (!TOKEN) {
-    console.error(JSON.stringify({
-        ok: false,
-        error: "Supervisor token missing"
-    }));
-    process.exit(1);
-}
+const ws = new WebSocket(wsUrl);
 
-const WebSocket = require("ws");
-const ws = new WebSocket("ws://supervisor/core/websocket");
+let nextId = 1;
+let authDone = false;
+let createSent = false;
+let saveSent = false;
+let deleteSent = false;
 
-let msgId = 1;
-let authOk = false;
-let dashboardCreatedOrExists = false;
-let configSaved = false;
-
-function send(type, data = {}) {
+function send(type, payload = {}) {
     ws.send(JSON.stringify({
-        id: msgId++,
+        id: nextId++,
         type,
-        ...data
+        ...payload
     }));
 }
 
 function finishOk(extra = {}) {
     console.log(JSON.stringify({
         ok: true,
-        action: ACTION,
-        dashboard: input.dashboard_meta?.url_path || "smart-voltronic",
+        action,
+        dashboard: urlPath,
         ...extra
     }));
     process.exit(0);
@@ -64,116 +73,114 @@ function finishOk(extra = {}) {
 function finishErr(error) {
     console.error(JSON.stringify({
         ok: false,
-        action: ACTION,
+        action,
         error: String(error || "Unknown error")
     }));
     process.exit(1);
 }
 
-ws.on("open", () => {
-    // attendre auth_required
+ws.on("error", (err) => {
+    finishErr(err.message || err);
 });
 
 ws.on("message", (raw) => {
     let msg;
+
     try {
         msg = JSON.parse(raw.toString());
     } catch (e) {
-        return finishErr("Invalid websocket message");
+        finishErr("Invalid websocket message");
+        return;
     }
 
     if (msg.type === "auth_required") {
         ws.send(JSON.stringify({
             type: "auth",
-            access_token: TOKEN
+            access_token: token
         }));
         return;
     }
 
     if (msg.type === "auth_invalid") {
-        return finishErr("Authentication failed");
+        finishErr("Authentication failed");
+        return;
     }
 
     if (msg.type === "auth_ok") {
-        authOk = true;
+        authDone = true;
 
-        if (ACTION === "delete") {
+        if (action === "delete") {
+            deleteSent = true;
             send("lovelace/config/delete", {
-                url_path: input.dashboard_meta.url_path
+                url_path: urlPath
             });
             return;
         }
 
+        createSent = true;
         send("lovelace/dashboards/create", {
-            url_path: input.dashboard_meta.url_path,
-            title: input.dashboard_meta.title,
-            icon: input.dashboard_meta.icon,
-            show_in_sidebar: input.dashboard_meta.show_in_sidebar !== false,
-            require_admin: !!input.dashboard_meta.require_admin,
+            url_path: urlPath,
+            title: title,
+            icon: icon,
+            show_in_sidebar: showInSidebar,
+            require_admin: requireAdmin,
             mode: "storage"
         });
         return;
     }
 
-    if (!authOk) return;
-
-    if (ACTION === "delete") {
-        if (msg.success === true) {
-            return finishOk({ deleted: true });
-        }
-        if (msg.success === false) {
-            return finishErr(msg.error?.message || "Delete failed");
-        }
-    }
-
-    // create dashboard
-    if (!dashboardCreatedOrExists && msg.id === 1 + 0) {
-        // rien ici, car auth n'a pas d'id
-    }
-
-    if (msg.success === false) {
-        const err = msg.error?.message || "";
-
-        // Si le dashboard existe déjà, on continue quand même vers save
-        if (err.toLowerCase().includes("exists") || err.toLowerCase().includes("already")) {
-            dashboardCreatedOrExists = true;
-            send("lovelace/config/save", {
-                url_path: input.dashboard_meta.url_path,
-                config: input.config
-            });
-            return;
-        }
-
-        // Certaines versions HA peuvent renvoyer une erreur create différente
-        // On tente quand même le save si on est sur dashboards/create
-        if (!configSaved) {
-            send("lovelace/config/save", {
-                url_path: input.dashboard_meta.url_path,
-                config: input.config
-            });
-            configSaved = true;
-            return;
-        }
-
-        return finishErr(err || "Home Assistant error");
-    }
-
-    // Premier succès après auth = create OK
-    if (!dashboardCreatedOrExists) {
-        dashboardCreatedOrExists = true;
-        send("lovelace/config/save", {
-            url_path: input.dashboard_meta.url_path,
-            config: input.config
-        });
-        configSaved = true;
+    if (!authDone) {
         return;
     }
 
-    // Deuxième succès = save OK
-    return finishOk({ saved: true });
-});
+    if (action === "delete") {
+        if (deleteSent && msg.success === true) {
+            finishOk({ deleted: true });
+            return;
+        }
 
-ws.on("error", (err) => {
-    finishErr(err.message || err);
-});
+        if (deleteSent && msg.success === false) {
+            const err = (msg.error && msg.error.message) || "Delete failed";
+            finishErr(err);
+            return;
+        }
+
+        return;
+    }
+
+    // Réponse à dashboards/create
+    if (createSent && !saveSent) {
+        if (msg.success === true) {
+            saveSent = true;
+            send("lovelace/config/save", {
+                url_path: urlPath,
+                config: dashboardConfig
+            });
+            return;
+        }
+
+        if (msg.success === false) {
+            // Si le dashboard existe déjà, on tente quand même le save
+            saveSent = true;
+            send("lovelace/config/save", {
+                url_path: urlPath,
+                config: dashboardConfig
+            });
+            return;
+        }
+    }
+
+    // Réponse à config/save
+    if (saveSent) {
+        if (msg.success === true) {
+            finishOk({ saved: true });
+            return;
+        }
+
+        if (msg.success === false) {
+            const err = (msg.error && msg.error.message) || "Dashboard save failed";
+            finishErr(err);
+            return;
+        }
+    }
 });
