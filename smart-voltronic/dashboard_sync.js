@@ -19,13 +19,36 @@ if (!WSImpl) {
   }
 }
 
-function readStdin() {
+function readStdinWithTimeout(timeoutMs = 300) {
   return new Promise((resolve, reject) => {
     let input = "";
+    let settled = false;
+
+    const done = (value) => {
+      if (settled) return;
+      settled = true;
+      resolve((value || "").trim());
+    };
+
+    const timer = setTimeout(() => done(input), timeoutMs);
+
     process.stdin.setEncoding("utf8");
-    process.stdin.on("data", chunk => { input += chunk; });
-    process.stdin.on("end", () => resolve(input.trim()));
-    process.stdin.on("error", reject);
+
+    process.stdin.on("data", chunk => {
+      input += chunk;
+    });
+
+    process.stdin.on("end", () => {
+      clearTimeout(timer);
+      done(input);
+    });
+
+    process.stdin.on("error", err => {
+      clearTimeout(timer);
+      if (settled) return;
+      settled = true;
+      reject(err);
+    });
   });
 }
 
@@ -46,7 +69,6 @@ function normalizeBoolean(v, fallback = false) {
 
 function normalizeInput(raw) {
   const parsed = raw ? JSON.parse(raw) : {};
-
   const dashboard_meta = parsed.dashboard_meta || {};
   const config = parsed.config || {};
 
@@ -78,8 +100,6 @@ class HAWebSocketClient {
     await new Promise((resolve, reject) => {
       const ws = new WSImpl(this.url);
       this.ws = ws;
-
-      ws.onopen = () => {};
 
       ws.onerror = (err) => reject(err);
 
@@ -140,7 +160,6 @@ class HAWebSocketClient {
 
       const id = this.nextId++;
       this.pending.set(id, { resolve, reject });
-
       this.ws.send(JSON.stringify({ id, type, ...payload }));
     });
   }
@@ -247,11 +266,10 @@ async function deleteDashboard(client, input) {
   let client = null;
 
   try {
-    let raw = await readStdin();
+    let raw = process.argv.slice(3).join(" ").trim();
 
-    // Si rien sur stdin, on prend l'argument ajouté par le node exec
     if (!raw) {
-      raw = process.argv.slice(3).join(" ").trim();
+      raw = await readStdinWithTimeout(300);
     }
 
     if (!raw) {
@@ -267,14 +285,12 @@ async function deleteDashboard(client, input) {
     client = new HAWebSocketClient(WS_URL, TOKEN);
     await client.connect();
 
-    let result;
-    if (ACTION === "delete") {
-      result = await deleteDashboard(client, input);
-    } else {
-      result = await upsertDashboard(client, input);
-    }
+    const result = ACTION === "delete"
+      ? await deleteDashboard(client, input)
+      : await upsertDashboard(client, input);
 
     process.stdout.write(JSON.stringify(result));
+    process.exit(0);
   } catch (err) {
     process.stderr.write(JSON.stringify({
       ok: false,
