@@ -73,6 +73,18 @@ options:
   premium_section: "────────── PREMIUM ──────────"
   premium_key: ""
 
+  # Premium battery info inverter 1
+  inv1_battery_capacity_ah: 0
+  inv1_battery_total_capacity_kwh: 0
+
+  # Premium battery info inverter 2
+  inv2_battery_capacity_ah: 0
+  inv2_battery_total_capacity_kwh: 0
+
+  # Premium battery info inverter 3
+  inv3_battery_capacity_ah: 0
+  inv3_battery_total_capacity_kwh: 0
+
   # ============================================================
   # 🔔 OPTIONS
   # ============================================================
@@ -130,6 +142,18 @@ schema:
 
   # Premium
   premium_key: str?
+
+  # Premium battery info inverter 1
+  inv1_battery_capacity_ah: float?
+  inv1_battery_total_capacity_kwh: float?
+
+  # Premium battery info inverter 2
+  inv2_battery_capacity_ah: float?
+  inv2_battery_total_capacity_kwh: float?
+
+  # Premium battery info inverter 3
+  inv3_battery_capacity_ah: float?
+  inv3_battery_total_capacity_kwh: float?
 
   # Options
   send_bip: bool
