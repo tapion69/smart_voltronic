@@ -329,24 +329,24 @@ logi "flows_cred.json créé avec succès"
 # ============================================================
 logi "Installing Smart Voltronic frontend resources..."
 
-mkdir -p /config/www/smart-voltronic
+mkdir -p /homeassistant/www/smart-voltronic
 
 if [ -f /addon/frontend/card-mod.js ]; then
-  cp /addon/frontend/card-mod.js /config/www/smart-voltronic/
+  cp /addon/frontend/card-mod.js /homeassistant/www/smart-voltronic/
   logi "Installed: card-mod.js"
 else
   logw "Missing frontend file: /addon/frontend/card-mod.js"
 fi
 
 if [ -f /addon/frontend/apexcharts-card.js ]; then
-  cp /addon/frontend/apexcharts-card.js /config/www/smart-voltronic/
+  cp /addon/frontend/apexcharts-card.js /homeassistant/www/smart-voltronic/
   logi "Installed: apexcharts-card.js"
 else
   logw "Missing frontend file: /addon/frontend/apexcharts-card.js"
 fi
 
 if [ -f /addon/frontend/mini-graph-card.js ]; then
-  cp /addon/frontend/mini-graph-card.js /config/www/smart-voltronic/
+  cp /addon/frontend/mini-graph-card.js /homeassistant/www/smart-voltronic/
   logi "Installed: mini-graph-card.js"
 else
   logw "Missing frontend file: /addon/frontend/mini-graph-card.js"
@@ -355,4 +355,4 @@ fi
 logi "Smart Voltronic frontend installed"
 
 logi "Starting Node-RED sur le port 1892..."
-exec node-red --userDir /data --settings /addon/settings.js
+exec node-red --userDir /data --settings /addon/settings.js      
