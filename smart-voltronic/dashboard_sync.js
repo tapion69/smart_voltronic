@@ -101,7 +101,7 @@ function call(type, payload = {}) {
 }
 
 async function ensureResources() {
-  const existing = await call("lovelace/resources");
+  const existing = await call("lovelace/resources/list");
   const existingUrls = new Set(
     Array.isArray(existing)
       ? existing.map((r) => String(r.url || "").trim())
