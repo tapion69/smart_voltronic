@@ -19,6 +19,8 @@ homeassistant_api: true
 map:
   - type: addon_config
     read_only: false
+  - type: homeassistant_config
+    read_only: false
 
 ports:
   1892/tcp: 1892
