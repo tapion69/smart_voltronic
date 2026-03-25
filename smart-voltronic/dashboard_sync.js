@@ -13,38 +13,25 @@ const REQUIRED_RESOURCES = [
 ];
 
 if (!b64) {
-  console.error(JSON.stringify({
-    ok: false,
-    error: "Missing dashboard payload"
-  }));
+  console.error(JSON.stringify({ ok: false, error: "Missing dashboard payload" }));
   process.exit(1);
 }
 
 if (!token) {
-  console.error(JSON.stringify({
-    ok: false,
-    error: "Supervisor token missing"
-  }));
+  console.error(JSON.stringify({ ok: false, error: "Supervisor token missing" }));
   process.exit(1);
 }
 
 if (typeof WebSocket === "undefined") {
-  console.error(JSON.stringify({
-    ok: false,
-    error: "Global WebSocket not available in this Node version"
-  }));
+  console.error(JSON.stringify({ ok: false, error: "Global WebSocket not available in this Node version" }));
   process.exit(1);
 }
 
 let input;
 try {
-  const json = Buffer.from(b64, "base64").toString("utf8");
-  input = JSON.parse(json);
+  input = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
 } catch (e) {
-  console.error(JSON.stringify({
-    ok: false,
-    error: "Invalid dashboard JSON"
-  }));
+  console.error(JSON.stringify({ ok: false, error: "Invalid dashboard JSON" }));
   process.exit(1);
 }
 
@@ -57,7 +44,6 @@ const showInSidebar = dashboardMeta.show_in_sidebar !== false;
 const requireAdmin = !!dashboardMeta.require_admin;
 
 const ws = new WebSocket(wsUrl);
-
 let nextId = 1;
 const pending = new Map();
 let finished = false;
@@ -92,26 +78,19 @@ function call(type, payload = {}) {
   return new Promise((resolve, reject) => {
     const id = nextId++;
     pending.set(id, { resolve, reject, type });
-    ws.send(JSON.stringify({
-      id,
-      type,
-      ...payload
-    }));
+    ws.send(JSON.stringify({ id, type, ...payload }));
   });
 }
 
 async function ensureResources() {
   const existing = await call("lovelace/resources/list");
-  const existingUrls = new Set(
-    Array.isArray(existing)
-      ? existing.map((r) => String(r.url || "").trim())
-      : []
+  const urls = new Set(
+    Array.isArray(existing) ? existing.map((r) => String(r.url || "").trim()) : []
   );
 
   const created = [];
-
   for (const res of REQUIRED_RESOURCES) {
-    if (existingUrls.has(res.url)) continue;
+    if (urls.has(res.url)) continue;
 
     await call("lovelace/resources/create", {
       url: res.url,
@@ -120,7 +99,6 @@ async function ensureResources() {
 
     created.push(res.url);
   }
-
   return created;
 }
 
@@ -138,7 +116,6 @@ async function createOrUpdateDashboard() {
     });
     createdDashboard = true;
   } catch (err) {
-    // S'il existe déjà, on continue avec save
     const msg = String(err?.message || err || "").toLowerCase();
     if (
       !msg.includes("exists") &&
@@ -161,18 +138,15 @@ async function deleteDashboard() {
   await call("lovelace/config/delete", {
     url_path: urlPath
   });
-
   return { deleted: true };
 }
 
 ws.onerror = (event) => {
-  const msg = event?.message || "WebSocket error";
-  finishErr(msg);
+  finishErr(event?.message || "WebSocket error");
 };
 
 ws.onmessage = async (event) => {
   let msg;
-
   try {
     msg = JSON.parse(event.data.toString());
   } catch (e) {
@@ -201,11 +175,11 @@ ws.onmessage = async (event) => {
         return;
       }
 
-      const createdResources = await ensureResources();
+      const resourcesCreated = await ensureResources();
       const result = await createOrUpdateDashboard();
 
       finishOk({
-        resources_created: createdResources,
+        resources_created: resourcesCreated,
         ...result
       });
     } catch (err) {
