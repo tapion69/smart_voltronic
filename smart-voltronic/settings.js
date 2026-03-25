@@ -17,14 +17,12 @@ module.exports = {
 
   nodesDir: ["/opt/node_modules"],
 
-  // IMPORTANT → permet crypto dans Function nodes
   functionGlobalContext: {
-    crypto: require("crypto")
+    crypto: require("crypto"),
+    fs: require("fs"),
+    path: require("path")
   },
 
-  // Context storage :
-  // - default = mémoire rapide
-  // - persistent = sauvegarde disque
   contextStorage: {
     default: {
       module: "memory"
