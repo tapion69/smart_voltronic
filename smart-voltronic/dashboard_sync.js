@@ -6,12 +6,6 @@ const b64 = process.argv[3] || "";
 const token = process.env.SUPERVISOR_TOKEN;
 const wsUrl = "ws://supervisor/core/websocket";
 
-const REQUIRED_RESOURCES = [
-  { url: "/local/smart-voltronic/card-mod.js", type: "module" },
-  { url: "/local/smart-voltronic/apexcharts-card.js", type: "module" },
-  { url: "/local/smart-voltronic/mini-graph-card.js", type: "module" }
-];
-
 if (!b64) {
   console.error(JSON.stringify({ ok: false, error: "Missing dashboard payload" }));
   process.exit(1);
@@ -23,7 +17,7 @@ if (!token) {
 }
 
 if (typeof WebSocket === "undefined") {
-  console.error(JSON.stringify({ ok: false, error: "Global WebSocket not available in this Node version" }));
+  console.error(JSON.stringify({ ok: false, error: "Global WebSocket not available" }));
   process.exit(1);
 }
 
@@ -61,14 +55,13 @@ function finishOk(extra = {}) {
   process.exit(0);
 }
 
-function finishErr(error, extra = {}) {
+function finishErr(error) {
   if (finished) return;
   finished = true;
   console.error(JSON.stringify({
     ok: false,
     action,
-    error: String(error || "Unknown error"),
-    ...extra
+    error: String(error || "Unknown error")
   }));
   try { ws.close(); } catch (_) {}
   process.exit(1);
@@ -77,29 +70,9 @@ function finishErr(error, extra = {}) {
 function call(type, payload = {}) {
   return new Promise((resolve, reject) => {
     const id = nextId++;
-    pending.set(id, { resolve, reject, type });
+    pending.set(id, { resolve, reject });
     ws.send(JSON.stringify({ id, type, ...payload }));
   });
-}
-
-async function ensureResources() {
-  const existing = await call("lovelace/resources/list");
-  const urls = new Set(
-    Array.isArray(existing) ? existing.map((r) => String(r.url || "").trim()) : []
-  );
-
-  const created = [];
-  for (const res of REQUIRED_RESOURCES) {
-    if (urls.has(res.url)) continue;
-
-    await call("lovelace/resources/create", {
-      url: res.url,
-      type: res.type
-    });
-
-    created.push(res.url);
-  }
-  return created;
 }
 
 async function createOrUpdateDashboard() {
@@ -169,19 +142,11 @@ ws.onmessage = async (event) => {
 
   if (msg.type === "auth_ok") {
     try {
-      if (action === "delete") {
-        const result = await deleteDashboard();
-        finishOk(result);
-        return;
-      }
+      const result = action === "delete"
+        ? await deleteDashboard()
+        : await createOrUpdateDashboard();
 
-      const resourcesCreated = await ensureResources();
-      const result = await createOrUpdateDashboard();
-
-      finishOk({
-        resources_created: resourcesCreated,
-        ...result
-      });
+      finishOk(result);
     } catch (err) {
       finishErr(err?.message || err);
     }
