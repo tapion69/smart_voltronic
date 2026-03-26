@@ -118,11 +118,30 @@ async function createOrUpdateDashboard() {
 }
 
 async function deleteDashboard() {
-  await call("lovelace/config/delete", {
-    url_path: urlPath
-  });
+  try {
+    await call("lovelace/config/delete", {
+      url_path: urlPath
+    });
 
-  return { deleted: true };
+    return { deleted: true };
+  } catch (err) {
+    const msg = String(err?.message || err || "").toLowerCase();
+
+    if (
+      msg.includes("not found") ||
+      msg.includes("unknown") ||
+      msg.includes("does not exist") ||
+      msg.includes("no config") ||
+      msg.includes("not configured")
+    ) {
+      return {
+        deleted: false,
+        already_missing: true
+      };
+    }
+
+    throw err;
+  }
 }
 
 ws.onerror = (event) => {
@@ -137,6 +156,46 @@ ws.onmessage = async (event) => {
     finishErr("Invalid websocket message");
     return;
   }
+
+  if (msg.type === "auth_required") {
+    ws.send(JSON.stringify({
+      type: "auth",
+      access_token: token
+    }));
+    return;
+  }
+
+  if (msg.type === "auth_invalid") {
+    finishErr("Authentication failed");
+    return;
+  }
+
+  if (msg.type === "auth_ok") {
+    try {
+      const result = action === "delete"
+        ? await deleteDashboard()
+        : await createOrUpdateDashboard();
+
+      finishOk(result);
+    } catch (err) {
+      finishErr(err?.message || err);
+    }
+    return;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(msg, "id")) {
+    const waiter = pending.get(msg.id);
+    if (!waiter) return;
+
+    pending.delete(msg.id);
+
+    if (msg.success === false) {
+      waiter.reject(new Error(msg.error?.message || "Home Assistant error"));
+    } else {
+      waiter.resolve(msg.result);
+    }
+  }
+};
 
   if (msg.type === "auth_required") {
     ws.send(JSON.stringify({
