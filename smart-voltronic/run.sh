@@ -172,6 +172,13 @@ export INV1_PORT INV2_PORT INV3_PORT
 export SERIAL_1 SERIAL_2 SERIAL_3
 
 # ============================================================
+# Dashboard storage dirs
+# ============================================================
+mkdir -p /config/dashboards
+mkdir -p /data/smart-voltronic
+logi "Dashboard directories prepared: /config/dashboards"
+
+# ============================================================
 # flows.json update
 # ============================================================
 ADDON_FLOWS_VERSION="$(cat /addon/flows_version.txt 2>/dev/null || echo '0.0.0')"
@@ -355,4 +362,4 @@ fi
 logi "Smart Voltronic frontend installed"
 
 logi "Starting Node-RED sur le port 1892..."
-exec node-red --userDir /data --settings /addon/settings.js      
+exec node-red --userDir /data --settings /addon/settings.js
