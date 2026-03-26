@@ -172,49 +172,13 @@ ws.onmessage = async (event) => {
 
   if (msg.type === "auth_ok") {
     try {
-      const result = action === "delete"
-        ? await deleteDashboard()
-        : await createOrUpdateDashboard();
+      let result;
 
-      finishOk(result);
-    } catch (err) {
-      finishErr(err?.message || err);
-    }
-    return;
-  }
-
-  if (Object.prototype.hasOwnProperty.call(msg, "id")) {
-    const waiter = pending.get(msg.id);
-    if (!waiter) return;
-
-    pending.delete(msg.id);
-
-    if (msg.success === false) {
-      waiter.reject(new Error(msg.error?.message || "Home Assistant error"));
-    } else {
-      waiter.resolve(msg.result);
-    }
-  }
-};
-
-  if (msg.type === "auth_required") {
-    ws.send(JSON.stringify({
-      type: "auth",
-      access_token: token
-    }));
-    return;
-  }
-
-  if (msg.type === "auth_invalid") {
-    finishErr("Authentication failed");
-    return;
-  }
-
-  if (msg.type === "auth_ok") {
-    try {
-      const result = action === "delete"
-        ? await deleteDashboard()
-        : await createOrUpdateDashboard();
+      if (action === "delete") {
+        result = await deleteDashboard();
+      } else {
+        result = await createOrUpdateDashboard();
+      }
 
       finishOk(result);
     } catch (err) {
