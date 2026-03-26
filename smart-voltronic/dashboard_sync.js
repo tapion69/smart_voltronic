@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 "use strict";
 
+const fs = require("fs");
+
 const action = process.argv[2] || "upsert";
-const b64 = process.argv[3] || "";
+const filePath = process.argv[3] || "/config/dashboards/smart_voltronic.json";
+
 const token = process.env.SUPERVISOR_TOKEN;
 const wsUrl = "ws://supervisor/core/websocket";
-
-if (!b64) {
-  console.error(JSON.stringify({ ok: false, error: "Missing dashboard payload" }));
-  process.exit(1);
-}
 
 if (!token) {
   console.error(JSON.stringify({ ok: false, error: "Supervisor token missing" }));
@@ -21,16 +19,24 @@ if (typeof WebSocket === "undefined") {
   process.exit(1);
 }
 
-let input;
-try {
-  input = JSON.parse(Buffer.from(b64, "base64").toString("utf8"));
-} catch (e) {
-  console.error(JSON.stringify({ ok: false, error: "Invalid dashboard JSON" }));
-  process.exit(1);
+let input = null;
+
+if (action !== "delete") {
+  if (!fs.existsSync(filePath)) {
+    console.error(JSON.stringify({ ok: false, error: `Dashboard file not found: ${filePath}` }));
+    process.exit(1);
+  }
+
+  try {
+    input = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  } catch (e) {
+    console.error(JSON.stringify({ ok: false, error: `Invalid dashboard JSON in file: ${filePath}` }));
+    process.exit(1);
+  }
 }
 
-const dashboardMeta = input.dashboard_meta || {};
-const dashboardConfig = input.config || {};
+const dashboardMeta = input?.dashboard_meta || {};
+const dashboardConfig = input?.config || {};
 const urlPath = dashboardMeta.url_path || "smart-voltronic";
 const title = dashboardMeta.title || "Smart Voltronic";
 const icon = dashboardMeta.icon || "mdi:solar-power";
@@ -104,13 +110,18 @@ async function createOrUpdateDashboard() {
     config: dashboardConfig
   });
 
-  return { created_dashboard: createdDashboard, saved: true };
+  return {
+    created_dashboard: createdDashboard,
+    saved: true,
+    file: filePath
+  };
 }
 
 async function deleteDashboard() {
   await call("lovelace/config/delete", {
     url_path: urlPath
   });
+
   return { deleted: true };
 }
 
