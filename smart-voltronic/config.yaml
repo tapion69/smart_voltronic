@@ -95,6 +95,7 @@ options:
   # 🎨 DASHBOARD
   # ============================================================
   dashboard_section: "────────── DASHBOARD ──────────"
+  dashboard_custom_cards_installed: false
 
   # ============================================================
   # 🔔 OPTIONS
@@ -168,6 +169,9 @@ schema:
 
   # Séparateur Dashboard
   dashboard_section: str?
+
+  # Dashboard
+  dashboard_custom_cards_installed: bool
 
   # Options
   send_bip: bool
