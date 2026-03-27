@@ -23,7 +23,7 @@ if [ ! -f "$OPTS" ]; then
   exit 1
 fi
 
-TMP="/data/flows.tmp.json"
+tmp="/data/flows.tmp.json"
 
 jq_str_or() {
   local jq_expr="$1"
@@ -154,15 +154,15 @@ logi "Inv2 -> link: $INV2_LINK | transport: $INV2_TRANSPORT | host: ${INV2_HOST:
 logi "Inv3 -> link: $INV3_LINK | transport: $INV3_TRANSPORT | host: ${INV3_HOST:-<empty>} | port: ${INV3_PORT}"
 
 if [ "$INV1_TRANSPORT" = "tcp" ] && [ -z "${INV1_HOST}" ]; then
-  loge "Inv1: inv1_link=gateway mais inv1_gateway_host est vide."
+  loge "Inv1: inv1_link=gateway mais inv1_gateway_host est vide dans la config."
   exit 1
 fi
 if [ "$INV2_TRANSPORT" = "tcp" ] && [ -z "${INV2_HOST}" ]; then
-  loge "Inv2: inv2_link=gateway mais inv2_gateway_host est vide."
+  loge "Inv2: inv2_link=gateway mais inv2_gateway_host est vide dans la config."
   exit 1
 fi
 if [ "$INV3_TRANSPORT" = "tcp" ] && [ -z "${INV3_HOST}" ]; then
-  loge "Inv3: inv3_link=gateway mais inv3_gateway_host est vide."
+  loge "Inv3: inv3_link=gateway mais inv3_gateway_host est vide dans la config."
   exit 1
 fi
 
@@ -172,13 +172,11 @@ export INV1_PORT INV2_PORT INV3_PORT
 export SERIAL_1 SERIAL_2 SERIAL_3
 
 # ============================================================
-# Dashboard / frontend dirs
+# Dashboard storage dirs
 # ============================================================
 mkdir -p /config/dashboards
 mkdir -p /data/smart-voltronic
-mkdir -p /config/www/smart-voltronic
-logi "Dashboard directories prepared"
-logi "Frontend target dir: /config/www/smart-voltronic"
+logi "Dashboard directories prepared: /config/dashboards"
 
 # ============================================================
 # flows.json update
@@ -223,7 +221,7 @@ update_serial_config_by_name() {
       else .
       end
     )
-  ' /data/flows.json > "$TMP" && mv "$TMP" /data/flows.json
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 
   logi "Port serial mis à jour : ${label} -> name=${node_name} port=${serial_value}"
 }
@@ -249,7 +247,7 @@ update_tcp_host_port_by_name() {
       else .
       end
     )
-  ' /data/flows.json > "$TMP" && mv "$TMP" /data/flows.json
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 
   logi "TCP ${label} -> name=${node_name} host=${host} port=${port}"
 }
@@ -274,8 +272,10 @@ if [ "$INV3_TRANSPORT" = "serial" ]; then TCP3_HOST="127.0.0.1"; TCP3_PORT="1"; 
 
 update_tcp_host_port_by_name "tcp out inv 1" "$TCP1_HOST" "$TCP1_PORT" "OUT1"
 update_tcp_host_port_by_name "tcp in inv 1"  "$TCP1_HOST" "$TCP1_PORT" "IN1"
+
 update_tcp_host_port_by_name "tcp out inv 2" "$TCP2_HOST" "$TCP2_PORT" "OUT2"
 update_tcp_host_port_by_name "tcp in inv 2"  "$TCP2_HOST" "$TCP2_PORT" "IN2"
+
 update_tcp_host_port_by_name "tcp out inv 3" "$TCP3_HOST" "$TCP3_PORT" "OUT3"
 update_tcp_host_port_by_name "tcp in inv 3"  "$TCP3_HOST" "$TCP3_PORT" "IN3"
 
@@ -303,7 +303,7 @@ jq \
     else .
     end
   )
-  ' /data/flows.json > "$TMP" && mv "$TMP" /data/flows.json
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
 
 # ============================================================
 # flows_cred.json
@@ -313,14 +313,14 @@ if [ -f /data/flows_cred.json ]; then
   logw "Ancien flows_cred.json supprimé"
 fi
 
-BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id')"
+BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' /data/flows.json | head -n 1)"
 
 if [ -z "$BROKER_ID" ]; then
   loge "Impossible de récupérer l'ID du node mqtt-broker dans flows.json"
   exit 1
 fi
 
-logi "Broker node ID: $BROKER_ID - Création flows_cred.json"
+logi "Broker node ID: $BROKER_ID — Création flows_cred.json"
 
 jq -n \
   --arg id "$BROKER_ID" \
@@ -336,13 +336,15 @@ logi "flows_cred.json créé avec succès"
 # ============================================================
 logi "Installing Smart Voltronic frontend resources..."
 
+mkdir -p /config/www/smart-voltronic
+
 copy_frontend_if_exists() {
   local src="$1"
-  local dst="$2"
+  local dst_dir="$2"
   local label="$3"
 
   if [ -f "$src" ]; then
-    cp -f "$src" "$dst/"
+    cp "$src" "$dst_dir/"
     logi "Installed: $label"
     return 0
   else
@@ -355,8 +357,6 @@ copy_frontend_if_exists /addon/frontend/card-mod.js        /config/www/smart-vol
 copy_frontend_if_exists /addon/frontend/apexcharts-card.js /config/www/smart-voltronic "apexcharts-card.js" || true
 copy_frontend_if_exists /addon/frontend/mini-graph-card.js /config/www/smart-voltronic "mini-graph-card.js" || true
 copy_frontend_if_exists /addon/frontend/bubble-card.js     /config/www/smart-voltronic "bubble-card.js" || true
-
-chmod -R 755 /config/www/smart-voltronic || true
 
 logi "Smart Voltronic frontend installed"
 
@@ -458,10 +458,10 @@ add_lovelace_resource_if_missing() {
 
   logw "Failed to add Lovelace resource: $resource_url | HTTP $http_code"
   if [ -f "$response_file" ]; then
-    local api_resp
-    api_resp="$(cat "$response_file" 2>/dev/null || true)"
-    if [ -n "$api_resp" ]; then
-      logw "API response: $api_resp"
+    local api_response
+    api_response="$(cat "$response_file" 2>/dev/null || true)"
+    if [ -n "$api_response" ]; then
+      logw "API response: $api_response"
     fi
     rm -f "$response_file" || true
   fi
@@ -489,12 +489,6 @@ register_lovelace_resources() {
 }
 
 register_lovelace_resources
-
-# ============================================================
-# Dashboard auto timing info
-# ============================================================
-logi "Dashboard auto: conseillé 30s après HA ready"
-logi "Dashboard auto: resources Lovelace à ~20s, dashboard build à ~30-40s"
 
 # ============================================================
 # Start Node-RED
