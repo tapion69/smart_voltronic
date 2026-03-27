@@ -172,7 +172,7 @@ export INV1_PORT INV2_PORT INV3_PORT
 export SERIAL_1 SERIAL_2 SERIAL_3
 
 # ============================================================
-# Dashboard storage dirs
+# Dashboard / frontend dirs
 # ============================================================
 mkdir -p /config/dashboards
 mkdir -p /data/smart-voltronic
@@ -313,7 +313,7 @@ if [ -f /data/flows_cred.json ]; then
   logw "Ancien flows_cred.json supprimé"
 fi
 
-BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' /data/flows.json)"
+BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id')"
 
 if [ -z "$BROKER_ID" ]; then
   loge "Impossible de récupérer l'ID du node mqtt-broker dans flows.json"
@@ -439,17 +439,33 @@ add_lovelace_resource_if_missing() {
     return 0
   fi
 
-  if curl -fsS \
+  local response_file="/tmp/lovelace_resource_response.json"
+  rm -f "$response_file" || true
+
+  local http_code
+  http_code="$(curl -sS -o "$response_file" -w "%{http_code}" \
     -X POST \
     -H "Authorization: Bearer ${SUPERVISOR_TOKEN_VALUE}" \
     -H "Content-Type: application/json" \
     -d "{\"url\":\"${resource_url}\",\"type\":\"${resource_type}\"}" \
-    "${HA_PROXY_API}/lovelace/resources" >/dev/null 2>&1; then
+    "${HA_PROXY_API}/lovelace/resources" || true)"
+
+  if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
     logi "Lovelace resource added: $resource_url"
+    rm -f "$response_file" || true
     return 0
   fi
 
-  logw "Failed to add Lovelace resource: $resource_url"
+  logw "Failed to add Lovelace resource: $resource_url | HTTP $http_code"
+  if [ -f "$response_file" ]; then
+    local api_resp
+    api_resp="$(cat "$response_file" 2>/dev/null || true)"
+    if [ -n "$api_resp" ]; then
+      logw "API response: $api_resp"
+    fi
+    rm -f "$response_file" || true
+  fi
+
   return 1
 }
 
@@ -478,7 +494,7 @@ register_lovelace_resources
 # Dashboard auto timing info
 # ============================================================
 logi "Dashboard auto: conseillé 30s après HA ready"
-logi "Dashboard auto: en pratique 20s ici pour Lovelace, puis flow Node-RED après 10s mini"
+logi "Dashboard auto: resources Lovelace à ~20s, dashboard build à ~30-40s"
 
 # ============================================================
 # Start Node-RED
