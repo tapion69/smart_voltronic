@@ -70,13 +70,6 @@ else
 fi
 
 # ============================================================
-# DASHBOARD - Auto install cards toggle
-# ============================================================
-AUTO_INSTALL_CARDS="$(jq -r '.auto_install_cards // false' "$OPTS")"
-export AUTO_INSTALL_CARDS
-logi "Dashboard auto_install_cards: $AUTO_INSTALL_CARDS"
-
-# ============================================================
 # MQTT
 # ============================================================
 MQTT_HOST="$(jq_str_or '.mqtt_host' '')"
@@ -337,6 +330,11 @@ jq -n \
   > /data/flows_cred.json
 
 logi "flows_cred.json créé avec succès"
+
+# ============================================================
+# Information dashboard premium
+# ============================================================
+logi "Dashboard premium: les cartes frontend doivent être installées manuellement via HACS si nécessaires"
 
 # ============================================================
 # Start Node-RED
