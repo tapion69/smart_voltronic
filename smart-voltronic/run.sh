@@ -70,6 +70,13 @@ else
 fi
 
 # ============================================================
+# DASHBOARD - Auto install cards toggle
+# ============================================================
+AUTO_INSTALL_CARDS="$(jq -r '.auto_install_cards // false' "$OPTS")"
+export AUTO_INSTALL_CARDS
+logi "Dashboard auto_install_cards: $AUTO_INSTALL_CARDS"
+
+# ============================================================
 # MQTT
 # ============================================================
 MQTT_HOST="$(jq_str_or '.mqtt_host' '')"
@@ -313,7 +320,7 @@ if [ -f /data/flows_cred.json ]; then
   logw "Ancien flows_cred.json supprimé"
 fi
 
-BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' /data/flows.json | head -n 1)"
+BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' /data/flows.json)"
 
 if [ -z "$BROKER_ID" ]; then
   loge "Impossible de récupérer l'ID du node mqtt-broker dans flows.json"
@@ -330,165 +337,6 @@ jq -n \
   > /data/flows_cred.json
 
 logi "flows_cred.json créé avec succès"
-
-# ============================================================
-# Frontend resources install
-# ============================================================
-logi "Installing Smart Voltronic frontend resources..."
-
-mkdir -p /config/www/smart-voltronic
-
-copy_frontend_if_exists() {
-  local src="$1"
-  local dst_dir="$2"
-  local label="$3"
-
-  if [ -f "$src" ]; then
-    cp "$src" "$dst_dir/"
-    logi "Installed: $label"
-    return 0
-  else
-    logw "Missing frontend file: $src"
-    return 1
-  fi
-}
-
-copy_frontend_if_exists /addon/frontend/card-mod.js        /config/www/smart-voltronic "card-mod.js" || true
-copy_frontend_if_exists /addon/frontend/apexcharts-card.js /config/www/smart-voltronic "apexcharts-card.js" || true
-copy_frontend_if_exists /addon/frontend/mini-graph-card.js /config/www/smart-voltronic "mini-graph-card.js" || true
-copy_frontend_if_exists /addon/frontend/bubble-card.js     /config/www/smart-voltronic "bubble-card.js" || true
-
-logi "Smart Voltronic frontend installed"
-
-for f in \
-  /config/www/smart-voltronic/card-mod.js \
-  /config/www/smart-voltronic/apexcharts-card.js \
-  /config/www/smart-voltronic/mini-graph-card.js \
-  /config/www/smart-voltronic/bubble-card.js
-do
-  if [ -f "$f" ]; then
-    logi "Frontend OK: $f"
-  else
-    logw "Frontend missing after copy: $f"
-  fi
-done
-
-# ============================================================
-# Home Assistant / Lovelace resources registration
-# ============================================================
-SUPERVISOR_URL="http://supervisor"
-HA_PROXY_API="${SUPERVISOR_URL}/core/api"
-SUPERVISOR_TOKEN_VALUE="${SUPERVISOR_TOKEN:-}"
-
-ha_api_ready() {
-  [ -n "$SUPERVISOR_TOKEN_VALUE" ] || return 1
-
-  curl -fsS \
-    -H "Authorization: Bearer ${SUPERVISOR_TOKEN_VALUE}" \
-    "${HA_PROXY_API}/" >/dev/null 2>&1
-}
-
-wait_for_home_assistant() {
-  local retries=60
-  local delay=5
-  local i=1
-
-  if [ -z "$SUPERVISOR_TOKEN_VALUE" ]; then
-    logw "SUPERVISOR_TOKEN absent: impossible d'enregistrer automatiquement les resources Lovelace"
-    return 1
-  fi
-
-  logi "Waiting for Home Assistant API..."
-
-  while [ $i -le $retries ]; do
-    if ha_api_ready; then
-      logi "Home Assistant API is ready"
-      return 0
-    fi
-
-    logi "Home Assistant not ready yet (${i}/${retries})..."
-    sleep "$delay"
-    i=$((i + 1))
-  done
-
-  logw "Home Assistant API not ready after timeout"
-  return 1
-}
-
-lovelace_resource_exists() {
-  local resource_url="$1"
-
-  local response
-  response="$(curl -fsS \
-    -H "Authorization: Bearer ${SUPERVISOR_TOKEN_VALUE}" \
-    "${HA_PROXY_API}/lovelace/resources" 2>/dev/null || true)"
-
-  if [ -z "$response" ]; then
-    return 1
-  fi
-
-  echo "$response" | jq -e --arg url "$resource_url" '.[] | select(.url == $url)' >/dev/null 2>&1
-}
-
-add_lovelace_resource_if_missing() {
-  local resource_url="$1"
-  local resource_type="${2:-module}"
-
-  if lovelace_resource_exists "$resource_url"; then
-    logi "Lovelace resource already present: $resource_url"
-    return 0
-  fi
-
-  local response_file="/tmp/lovelace_resource_response.json"
-  rm -f "$response_file" || true
-
-  local http_code
-  http_code="$(curl -sS -o "$response_file" -w "%{http_code}" \
-    -X POST \
-    -H "Authorization: Bearer ${SUPERVISOR_TOKEN_VALUE}" \
-    -H "Content-Type: application/json" \
-    -d "{\"url\":\"${resource_url}\",\"type\":\"${resource_type}\"}" \
-    "${HA_PROXY_API}/lovelace/resources" || true)"
-
-  if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
-    logi "Lovelace resource added: $resource_url"
-    rm -f "$response_file" || true
-    return 0
-  fi
-
-  logw "Failed to add Lovelace resource: $resource_url | HTTP $http_code"
-  if [ -f "$response_file" ]; then
-    local api_response
-    api_response="$(cat "$response_file" 2>/dev/null || true)"
-    if [ -n "$api_response" ]; then
-      logw "API response: $api_response"
-    fi
-    rm -f "$response_file" || true
-  fi
-
-  return 1
-}
-
-register_lovelace_resources() {
-  if ! wait_for_home_assistant; then
-    logw "Skipping automatic Lovelace resource registration"
-    return 0
-  fi
-
-  logi "HA ready -> waiting 20s before Lovelace registration..."
-  sleep 20
-
-  logi "Registering Lovelace resources..."
-
-  add_lovelace_resource_if_missing "/local/smart-voltronic/apexcharts-card.js" "module" || true
-  add_lovelace_resource_if_missing "/local/smart-voltronic/mini-graph-card.js" "module" || true
-  add_lovelace_resource_if_missing "/local/smart-voltronic/card-mod.js" "module" || true
-  add_lovelace_resource_if_missing "/local/smart-voltronic/bubble-card.js" "module" || true
-
-  logi "Lovelace resources registration finished"
-}
-
-register_lovelace_resources
 
 # ============================================================
 # Start Node-RED
