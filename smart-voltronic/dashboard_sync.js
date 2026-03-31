@@ -81,29 +81,47 @@ function call(type, payload = {}) {
   });
 }
 
+function isDashboardMissingError(err) {
+  const msg = String(err?.message || err || "").toLowerCase();
+  return (
+    msg.includes("not found") ||
+    msg.includes("unknown") ||
+    msg.includes("does not exist") ||
+    msg.includes("no config") ||
+    msg.includes("not configured")
+  );
+}
+
 async function createOrUpdateDashboard() {
   let createdDashboard = false;
 
   try {
-    await call("lovelace/dashboards/create", {
+    await call("lovelace/config/save", {
       url_path: urlPath,
-      title,
-      icon,
-      show_in_sidebar: showInSidebar,
-      require_admin: requireAdmin,
-      mode: "storage"
+      config: dashboardConfig
     });
-    createdDashboard = true;
+
+    return {
+      created_dashboard: false,
+      saved: true,
+      file: filePath
+    };
   } catch (err) {
-    const msg = String(err?.message || err || "").toLowerCase();
-    if (
-      !msg.includes("exists") &&
-      !msg.includes("already") &&
-      !msg.includes("configured")
-    ) {
+    if (!isDashboardMissingError(err)) {
       throw err;
     }
   }
+
+  await call("lovelace/dashboards/create", {
+    url_path: urlPath,
+    title,
+    icon,
+    show_in_sidebar: showInSidebar,
+    require_admin: requireAdmin,
+    mode: "storage"
+  });
+
+  createdDashboard = true;
 
   await call("lovelace/config/save", {
     url_path: urlPath,
