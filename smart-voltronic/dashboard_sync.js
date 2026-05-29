@@ -5,6 +5,17 @@ const fs = require("fs");
 
 const action = process.argv[2] || "upsert";
 const filePath = process.argv[3] || "/config/dashboards/smart_voltronic.json";
+const dashboardType = process.argv[4] || "lovelace";
+
+if (dashboardType === "html") {
+  console.log(JSON.stringify({
+    ok: true,
+    action,
+    skipped: true,
+    reason: "HTML dashboard does not use Lovelace websocket sync"
+  }));
+  process.exit(0);
+}
 
 const token = process.env.SUPERVISOR_TOKEN;
 const wsUrl = "ws://supervisor/core/websocket";
@@ -37,6 +48,7 @@ if (action !== "delete") {
 
 const dashboardMeta = input?.dashboard_meta || {};
 const dashboardConfig = input?.config || {};
+
 const urlPath = dashboardMeta.url_path || "smart-voltronic";
 const title = dashboardMeta.title || "Smart Voltronic";
 const icon = dashboardMeta.icon || "mdi:solar-power";
@@ -54,6 +66,7 @@ function finishOk(extra = {}) {
   console.log(JSON.stringify({
     ok: true,
     action,
+    dashboard_type: dashboardType,
     dashboard: urlPath,
     ...extra
   }));
@@ -67,6 +80,7 @@ function finishErr(error) {
   console.error(JSON.stringify({
     ok: false,
     action,
+    dashboard_type: dashboardType,
     error: String(error || "Unknown error")
   }));
   try { ws.close(); } catch (_) {}
@@ -93,8 +107,6 @@ function isDashboardMissingError(err) {
 }
 
 async function createOrUpdateDashboard() {
-  let createdDashboard = false;
-
   try {
     await call("lovelace/config/save", {
       url_path: urlPath,
@@ -121,21 +133,27 @@ async function createOrUpdateDashboard() {
     mode: "storage"
   });
 
-  createdDashboard = true;
-
   await call("lovelace/config/save", {
     url_path: urlPath,
     config: dashboardConfig
   });
 
   return {
-    created_dashboard: createdDashboard,
+    created_dashboard: true,
     saved: true,
     file: filePath
   };
 }
 
 async function deleteDashboard() {
+  if (dashboardType !== "lovelace") {
+    return {
+      deleted: false,
+      skipped: true,
+      reason: "delete only allowed for Lovelace dashboard"
+    };
+  }
+
   try {
     await call("lovelace/config/delete", {
       url_path: urlPath
@@ -143,15 +161,7 @@ async function deleteDashboard() {
 
     return { deleted: true };
   } catch (err) {
-    const msg = String(err?.message || err || "").toLowerCase();
-
-    if (
-      msg.includes("not found") ||
-      msg.includes("unknown") ||
-      msg.includes("does not exist") ||
-      msg.includes("no config") ||
-      msg.includes("not configured")
-    ) {
+    if (isDashboardMissingError(err)) {
       return {
         deleted: false,
         already_missing: true
@@ -168,6 +178,7 @@ ws.onerror = (event) => {
 
 ws.onmessage = async (event) => {
   let msg;
+
   try {
     msg = JSON.parse(event.data.toString());
   } catch (e) {
