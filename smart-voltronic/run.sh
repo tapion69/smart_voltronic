@@ -18,13 +18,34 @@ fi
 logi "Smart Voltronic: init..."
 
 OPTS="/data/options.json"
+FLOWS="/data/flows.json"
+FLOWS_CRED="/data/flows_cred.json"
+TMP="/data/flows.tmp.json"
+INSTANCE_FILE="/data/smart_voltronic_instance_id"
+DASHBOARDS_DIR="/config/dashboards"
+ADDON_DATA_DIR="/data/smart-voltronic"
+ADDON_FLOWS="/addon/flows.json"
+ADDON_FLOWS_VERSION_FILE="/addon/flows_version.txt"
+DATA_FLOWS_VERSION_FILE="/data/flows_version.txt"
+
+mkdir -p /data
+mkdir -p /config
+mkdir -p "$DASHBOARDS_DIR"
+mkdir -p "$ADDON_DATA_DIR"
+
 if [ ! -f "$OPTS" ]; then
   loge "options.json introuvable dans /data. Stop."
   exit 1
 fi
 
-tmp="/data/flows.tmp.json"
+if [ ! -f "$ADDON_FLOWS" ]; then
+  loge "flows.json introuvable dans /addon. Stop."
+  exit 1
+fi
 
+# ============================================================
+# HELPERS
+# ============================================================
 jq_str_or() {
   local jq_expr="$1"
   local fallback="$2"
@@ -37,8 +58,21 @@ jq_int_or() {
   jq -r "($jq_expr // $fallback) | tonumber" "$OPTS" 2>/dev/null || echo "$fallback"
 }
 
+bool_or_false() {
+  local jq_expr="$1"
+  jq -r "($jq_expr // false) | if . == true then \"true\" else \"false\" end" "$OPTS"
+}
+
+trim() {
+  local s="${1:-}"
+  s="${s#"${s%%[![:space:]]*}"}"
+  s="${s%"${s##*[![:space:]]}"}"
+  printf '%s' "$s"
+}
+
 sanitize_transport() {
-  local v="$1"
+  local v
+  v="$(printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]')"
   case "$v" in
     serial) echo "serial" ;;
     gateway|tcp) echo "tcp" ;;
@@ -46,58 +80,138 @@ sanitize_transport() {
   esac
 }
 
-is_valid_serial_port() {
-  local p="$1"
-  [ -n "$p" ] || return 1
-  case "$p" in
-    *CHANGE-ME*) return 1 ;;
-    /dev/serial/*|/dev/tty*) return 0 ;;
-    *) return 1 ;;
+timezone_exists() {
+  local tz="$1"
+  [ -n "$tz" ] && [ -f "/usr/share/zoneinfo/$tz" ]
+}
+
+normalize_timezone() {
+  local raw tz upper offset sign hours
+
+  raw="$(trim "${1:-}")"
+  [ -z "$raw" ] && { echo "UTC"; return; }
+
+  tz="$raw"
+  upper="$(printf '%s' "$tz" | tr '[:lower:]' '[:upper:]')"
+
+  case "$upper" in
+    UTC|ETC/UTC|GMT) echo "UTC"; return ;;
+    EUROPE/FRANCE|FRANCE) echo "Europe/Paris"; return ;;
+    BELGIUM) echo "Europe/Brussels"; return ;;
+    GERMANY) echo "Europe/Berlin"; return ;;
+    SPAIN) echo "Europe/Madrid"; return ;;
+    ITALY) echo "Europe/Rome"; return ;;
+    UK|ENGLAND|BRITAIN|GREAT\ BRITAIN) echo "Europe/London"; return ;;
+    SOUTH\ AFRICA|AFRICA/SOUTH\ AFRICA|JOHANNESBURG) echo "Africa/Johannesburg"; return ;;
+    MOROCCO) echo "Africa/Casablanca"; return ;;
+    NEW\ YORK|US/EASTERN|EST) echo "America/New_York"; return ;;
+    CHICAGO|US/CENTRAL|CST) echo "America/Chicago"; return ;;
+    LOS\ ANGELES|US/PACIFIC|PST) echo "America/Los_Angeles"; return ;;
+    MONTREAL) echo "America/Montreal"; return ;;
+    DUBAI|UAE) echo "Asia/Dubai"; return ;;
+    TOKYO|JAPAN) echo "Asia/Tokyo"; return ;;
+    SYDNEY) echo "Australia/Sydney"; return ;;
   esac
+
+  if printf '%s' "$upper" | grep -Eq '^(UTC|GMT)[[:space:]]*[+-][0-9]{1,2}(:00)?$'; then
+    offset="$(printf '%s' "$upper" | sed -E 's/^(UTC|GMT)[[:space:]]*([+-][0-9]{1,2})(:00)?$/\2/')"
+    sign="${offset:0:1}"
+    hours="${offset:1}"
+    hours="$(printf '%d' "$hours" 2>/dev/null || echo "")"
+    if [ -n "$hours" ] && [ "$hours" -ge 0 ] && [ "$hours" -le 14 ]; then
+      if [ "$sign" = "+" ]; then
+        echo "Etc/GMT-$hours"
+      else
+        echo "Etc/GMT+$hours"
+      fi
+      return
+    fi
+  fi
+
+  if printf '%s' "$upper" | grep -Eq '^[+-][0-9]{1,2}$'; then
+    sign="${upper:0:1}"
+    hours="${upper:1}"
+    hours="$(printf '%d' "$hours" 2>/dev/null || echo "")"
+    if [ -n "$hours" ] && [ "$hours" -ge 0 ] && [ "$hours" -le 14 ]; then
+      if [ "$sign" = "+" ]; then
+        echo "Etc/GMT-$hours"
+      else
+        echo "Etc/GMT+$hours"
+      fi
+      return
+    fi
+  fi
+
+  echo "$tz"
 }
 
-is_valid_host() {
-  local h="$1"
-  [ -n "$h" ] || return 1
-  case "$h" in
-    *CHANGE-ME*) return 1 ;;
-    *) return 0 ;;
-  esac
+validate_timezone_or_fallback() {
+  local tz="$1"
+  if timezone_exists "$tz"; then
+    echo "$tz"
+  else
+    echo "UTC"
+  fi
 }
 
-is_valid_port() {
-  local p="$1"
-  [[ "$p" =~ ^[0-9]+$ ]] || return 1
-  [ "$p" -ge 1 ] && [ "$p" -le 65535 ]
+install_build_tools_if_needed() {
+  if command -v gcc >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+    logi "Build tools déjà présents"
+    return 0
+  fi
+
+  logw "Build tools absents, tentative d'installation runtime..."
+  if apk add --no-cache python3 make g++; then
+    logi "Build tools installés avec succès"
+    return 0
+  fi
+
+  logw "Impossible d'installer les build tools runtime, on continue sans fallback compilation"
+  return 1
 }
 
-set_node_disabled_by_name() {
-  local node_type="$1"
-  local node_name="$2"
-  local disabled="$3"
+install_node_red_nodes() {
+  export HOME="/data"
+  export npm_config_cache="/data/.npm"
+  export npm_config_update_notifier="false"
+  export npm_config_fund="false"
+  export npm_config_audit="false"
 
-  jq --arg type "$node_type" --arg name "$node_name" --argjson disabled "$disabled" '
-    map(
-      if .type==$type and .name==$name
-      then .d = $disabled
-      else .
-      end
-    )
-  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
-}
+  mkdir -p /data
+  cd /data
 
-set_tcp_node_disabled_by_name() {
-  local node_name="$1"
-  local disabled="$2"
+  if [ ! -f package.json ]; then
+    logi "Initialisation package.json dans /data"
+    npm init -y >/dev/null 2>&1
+  fi
 
-  jq --arg name "$node_name" --argjson disabled "$disabled" '
-    map(
-      if (.type=="tcp in" or .type=="tcp out" or .type=="tcp request") and .name==$name
-      then .d = $disabled
-      else .
-      end
-    )
-  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+  local required_nodes=(
+    "node-red-node-serialport"
+  )
+
+  local node
+  for node in "${required_nodes[@]}"; do
+    if [ -d "/data/node_modules/$node" ]; then
+      logi "Node déjà installé: $node"
+      continue
+    fi
+
+    logi "Installation du node Node-RED: $node"
+    if npm install --unsafe-perm --no-audit --no-fund "$node"; then
+      logi "Node installé avec succès: $node"
+      continue
+    fi
+
+    logw "Échec installation simple pour $node, tentative avec build tools"
+    install_build_tools_if_needed || true
+
+    if npm install --unsafe-perm --no-audit --no-fund "$node"; then
+      logi "Node installé avec succès après fallback: $node"
+    else
+      loge "Échec installation node: $node"
+      exit 1
+    fi
+  done
 }
 
 update_serial_config_by_name() {
@@ -105,15 +219,16 @@ update_serial_config_by_name() {
   local serial_value="$2"
   local label="$3"
 
-  local exists
-  exists="$(jq -r --arg name "$node_name" '.[] | select(.type=="serial-port" and .name==$name) | .name' /data/flows.json 2>/dev/null || echo "")"
-
-  if [ -z "$exists" ]; then
-    logw "Noeud serial-port name '$node_name' introuvable dans flows.json (${label})"
+  if [ -z "$serial_value" ]; then
+    logi "Serial ${label} non configuré, noeud conservé tel quel"
     return 0
   fi
 
-  if [ -z "$serial_value" ]; then
+  local exists
+  exists="$(jq -r --arg name "$node_name" '.[] | select(.type=="serial-port" and .name==$name) | .name' "$FLOWS" 2>/dev/null || echo "")"
+
+  if [ -z "$exists" ]; then
+    logw "Noeud serial-port name '$node_name' introuvable dans flows.json (${label})"
     return 0
   fi
 
@@ -124,7 +239,9 @@ update_serial_config_by_name() {
       else .
       end
     )
-  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+  ' "$FLOWS" > "$TMP" && mv "$TMP" "$FLOWS"
+
+  logi "Port serial mis à jour : ${label} -> name=${node_name} port=${serial_value}"
 }
 
 update_tcp_host_port_by_name() {
@@ -134,7 +251,7 @@ update_tcp_host_port_by_name() {
   local label="$4"
 
   local exists
-  exists="$(jq -r --arg name "$node_name" '.[] | select((.type=="tcp in" or .type=="tcp out" or .type=="tcp request") and .name==$name) | .name' /data/flows.json 2>/dev/null || echo "")"
+  exists="$(jq -r --arg name "$node_name" '.[] | select((.type=="tcp in" or .type=="tcp out" or .type=="tcp request") and .name==$name) | .name' "$FLOWS" 2>/dev/null || echo "")"
 
   if [ -z "$exists" ]; then
     logw "Noeud TCP name '$node_name' introuvable dans flows.json (${label})"
@@ -148,14 +265,14 @@ update_tcp_host_port_by_name() {
       else .
       end
     )
-  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+  ' "$FLOWS" > "$TMP" && mv "$TMP" "$FLOWS"
+
+  logi "TCP ${label} -> name=${node_name} host=${host} port=${port}"
 }
 
 # ============================================================
 # PREMIUM
 # ============================================================
-INSTANCE_FILE="/data/smart_voltronic_instance_id"
-
 if [ ! -f "$INSTANCE_FILE" ]; then
   cat /proc/sys/kernel/random/uuid > "$INSTANCE_FILE"
   logi "Premium: nouvel instance_id généré"
@@ -167,11 +284,31 @@ SMART_VOLTRONIC_PREMIUM_KEY="$(jq -r '.premium_key // ""' "$OPTS")"
 export SMART_VOLTRONIC_INSTANCE_ID
 export SMART_VOLTRONIC_PREMIUM_KEY
 
+logi "Premium instance_id: $SMART_VOLTRONIC_INSTANCE_ID"
+if [ -n "$SMART_VOLTRONIC_PREMIUM_KEY" ]; then
+  logi "Premium key: configured"
+else
+  logi "Premium key: not configured"
+fi
+
 # ============================================================
-# DASHBOARD CUSTOM CARDS FLAG
+# DASHBOARD
 # ============================================================
-DASHBOARD_CUSTOM_CARDS_INSTALLED="$(jq -r '.dashboard_custom_cards_installed // false' "$OPTS")"
+DASHBOARD_CUSTOM_CARDS_INSTALLED="$(bool_or_false '.dashboard_custom_cards_installed')"
+DASHBOARD_LANGUAGE="$(jq -r '.dashboard_language // "en"' "$OPTS")"
+
 export DASHBOARD_CUSTOM_CARDS_INSTALLED
+export DASHBOARD_LANGUAGE
+
+logi "Dashboard custom cards installed: $DASHBOARD_CUSTOM_CARDS_INSTALLED"
+logi "Dashboard language: $DASHBOARD_LANGUAGE"
+
+# ============================================================
+# OPTIONS
+# ============================================================
+SEND_BIP="$(jq -r '(.send_bip // true) | if . == true then "true" else "false" end' "$OPTS")"
+export SEND_BIP
+logi "Send bip enabled: $SEND_BIP"
 
 # ============================================================
 # MQTT
@@ -181,36 +318,61 @@ MQTT_PORT="$(jq_int_or '.mqtt_port' 1883)"
 MQTT_USER="$(jq -r '.mqtt_user // ""' "$OPTS")"
 MQTT_PASS="$(jq -r '.mqtt_pass // ""' "$OPTS")"
 
-if [ -z "${MQTT_HOST}" ]; then
+logi "MQTT (options.json): ${MQTT_HOST:-<empty>}:${MQTT_PORT} (user: ${MQTT_USER:-<none>})"
+
+if [ -z "$MQTT_HOST" ]; then
   loge "mqtt_host vide. Renseigne-le dans la config add-on."
   exit 1
 fi
 
-if [ -z "${MQTT_USER}" ] || [ -z "${MQTT_PASS}" ]; then
+if [ -z "$MQTT_USER" ] || [ -z "$MQTT_PASS" ]; then
   loge "mqtt_user ou mqtt_pass vide. Renseigne-les dans la config add-on."
   exit 1
 fi
 
 # ============================================================
-# Timezone
+# TIMEZONE
 # ============================================================
-TZ_MODE="$(jq -r '.timezone_mode // "UTC"' "$OPTS")"
-TZ_CUSTOM="$(jq -r '.timezone_custom // "UTC"' "$OPTS")"
+TZ_MODE_RAW="$(jq -r '.timezone_mode // "UTC"' "$OPTS")"
+TZ_CUSTOM_RAW="$(jq -r '.timezone_custom // ""' "$OPTS")"
 
-if [ "$TZ_MODE" = "CUSTOM" ]; then
-  ADDON_TIMEZONE="$TZ_CUSTOM"
+if [ "$TZ_MODE_RAW" = "CUSTOM" ]; then
+  TZ_REQUESTED="$TZ_CUSTOM_RAW"
 else
-  ADDON_TIMEZONE="$TZ_MODE"
+  TZ_REQUESTED="$TZ_MODE_RAW"
+fi
+
+TZ_REQUESTED="$(trim "$TZ_REQUESTED")"
+TZ_NORMALIZED="$(normalize_timezone "$TZ_REQUESTED")"
+ADDON_TIMEZONE="$(validate_timezone_or_fallback "$TZ_NORMALIZED")"
+
+TIMEZONE_VALID="true"
+if [ "$ADDON_TIMEZONE" != "$TZ_NORMALIZED" ]; then
+  TIMEZONE_VALID="false"
 fi
 
 if [ -z "${ADDON_TIMEZONE:-}" ] || [ "$ADDON_TIMEZONE" = "null" ]; then
   ADDON_TIMEZONE="UTC"
+  TIMEZONE_VALID="false"
 fi
 
+export TZ="$ADDON_TIMEZONE"
 export ADDON_TIMEZONE
+export ADDON_TIMEZONE_REQUESTED="${TZ_REQUESTED:-UTC}"
+export ADDON_TIMEZONE_NORMALIZED="$TZ_NORMALIZED"
+export ADDON_TIMEZONE_VALID="$TIMEZONE_VALID"
+
+logi "Timezone requested: ${ADDON_TIMEZONE_REQUESTED}"
+logi "Timezone normalized: ${ADDON_TIMEZONE_NORMALIZED}"
+if [ "$ADDON_TIMEZONE_VALID" = "true" ]; then
+  logi "Timezone active: ${ADDON_TIMEZONE}"
+else
+  logw "Timezone invalide ou inconnue -> fallback UTC (requested=${ADDON_TIMEZONE_REQUESTED}, normalized=${ADDON_TIMEZONE_NORMALIZED})"
+  logi "Timezone active: ${ADDON_TIMEZONE}"
+fi
 
 # ============================================================
-# Battery system voltage
+# BATTERY SYSTEM VOLTAGE
 # ============================================================
 BATTERY_SYSTEM_VOLTAGE_RAW="$(jq -r '.battery_system_voltage // "48V"' "$OPTS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')"
 
@@ -221,9 +383,10 @@ case "$BATTERY_SYSTEM_VOLTAGE_RAW" in
 esac
 
 export BATTERY_SYSTEM_VOLTAGE
+logi "Battery system voltage (options.json): ${BATTERY_SYSTEM_VOLTAGE}V"
 
 # ============================================================
-# Inverter config
+# INVERTER CONFIG
 # ============================================================
 INV1_LINK="$(jq -r '.inv1_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
 INV2_LINK="$(jq -r '.inv2_link // "serial"' "$OPTS" | tr '[:upper:]' '[:lower:]')"
@@ -245,16 +408,24 @@ INV1_PORT="$(jq_int_or '.inv1_gateway_port' 8899)"
 INV2_PORT="$(jq_int_or '.inv2_gateway_port' 8899)"
 INV3_PORT="$(jq_int_or '.inv3_gateway_port' 8899)"
 
-if [ "$INV1_TRANSPORT" = "tcp" ] && [ -n "$INV1_HOST" ] && ! is_valid_host "$INV1_HOST"; then
-  loge "Inv1: inv1_gateway_host invalide."
+logi "Serial1: ${SERIAL_1:-<empty>}"
+logi "Serial2: ${SERIAL_2:-<empty>}"
+logi "Serial3: ${SERIAL_3:-<empty>}"
+
+logi "Inv1 -> link: $INV1_LINK | transport: $INV1_TRANSPORT | host: ${INV1_HOST:-<empty>} | port: ${INV1_PORT}"
+logi "Inv2 -> link: $INV2_LINK | transport: $INV2_TRANSPORT | host: ${INV2_HOST:-<empty>} | port: ${INV2_PORT}"
+logi "Inv3 -> link: $INV3_LINK | transport: $INV3_TRANSPORT | host: ${INV3_HOST:-<empty>} | port: ${INV3_PORT}"
+
+if [ "$INV1_TRANSPORT" = "tcp" ] && [ -z "$INV1_HOST" ]; then
+  loge "Inv1: inv1_link=gateway mais inv1_gateway_host est vide dans la config."
   exit 1
 fi
-if [ "$INV2_TRANSPORT" = "tcp" ] && [ -n "$INV2_HOST" ] && ! is_valid_host "$INV2_HOST"; then
-  loge "Inv2: inv2_gateway_host invalide."
+if [ "$INV2_TRANSPORT" = "tcp" ] && [ -z "$INV2_HOST" ]; then
+  loge "Inv2: inv2_link=gateway mais inv2_gateway_host est vide dans la config."
   exit 1
 fi
-if [ "$INV3_TRANSPORT" = "tcp" ] && [ -n "$INV3_HOST" ] && ! is_valid_host "$INV3_HOST"; then
-  loge "Inv3: inv3_gateway_host invalide."
+if [ "$INV3_TRANSPORT" = "tcp" ] && [ -z "$INV3_HOST" ]; then
+  loge "Inv3: inv3_link=gateway mais inv3_gateway_host est vide dans la config."
   exit 1
 fi
 
@@ -264,34 +435,34 @@ export INV1_PORT INV2_PORT INV3_PORT
 export SERIAL_1 SERIAL_2 SERIAL_3
 
 # ============================================================
-# Dashboard storage dirs
+# NODE-RED MODULES INSTALL
 # ============================================================
-mkdir -p /config/dashboards
-mkdir -p /data/smart-voltronic
+install_node_red_nodes
 
 # ============================================================
-# flows.json update
+# FLOWS UPDATE
 # ============================================================
-ADDON_FLOWS_VERSION="$(cat /addon/flows_version.txt 2>/dev/null || echo '0.0.0')"
-INSTALLED_VERSION="$(cat /data/flows_version.txt 2>/dev/null || echo '')"
+ADDON_FLOWS_VERSION="$(cat "$ADDON_FLOWS_VERSION_FILE" 2>/dev/null || echo '0.0.0')"
+INSTALLED_VERSION="$(cat "$DATA_FLOWS_VERSION_FILE" 2>/dev/null || echo '')"
 
-if [ ! -f /data/flows.json ] || [ "$INSTALLED_VERSION" != "$ADDON_FLOWS_VERSION" ]; then
-  logi "Mise à jour flows : ${INSTALLED_VERSION:-aucun} -> $ADDON_FLOWS_VERSION"
-  cp /addon/flows.json /data/flows.json
-  echo "$ADDON_FLOWS_VERSION" > /data/flows_version.txt
+if [ ! -f "$FLOWS" ] || [ "$INSTALLED_VERSION" != "$ADDON_FLOWS_VERSION" ]; then
+  logi "Mise à jour flows : (installé: ${INSTALLED_VERSION:-aucun}) -> (addon: $ADDON_FLOWS_VERSION)"
+  cp "$ADDON_FLOWS" "$FLOWS"
+  echo "$ADDON_FLOWS_VERSION" > "$DATA_FLOWS_VERSION_FILE"
+  logi "flows.json mis à jour vers v$ADDON_FLOWS_VERSION"
 else
-  logi "flows.json à jour (v$ADDON_FLOWS_VERSION)"
+  logi "flows.json à jour (v$ADDON_FLOWS_VERSION), conservation des flows utilisateur"
 fi
 
 # ============================================================
-# Patch serial nodes PAR NAME
+# PATCH SERIAL NODES
 # ============================================================
 update_serial_config_by_name "Serial inv 1" "$SERIAL_1" "SERIAL_1"
 update_serial_config_by_name "Serial inv 2" "$SERIAL_2" "SERIAL_2"
 update_serial_config_by_name "Serial inv 3" "$SERIAL_3" "SERIAL_3"
 
 # ============================================================
-# Patch TCP nodes PAR NAME
+# PATCH TCP NODES
 # ============================================================
 TCP1_HOST="$INV1_HOST"; TCP1_PORT="$INV1_PORT"
 TCP2_HOST="$INV2_HOST"; TCP2_PORT="$INV2_PORT"
@@ -311,94 +482,14 @@ update_tcp_host_port_by_name "tcp out inv 3" "$TCP3_HOST" "$TCP3_PORT" "OUT3"
 update_tcp_host_port_by_name "tcp in inv 3"  "$TCP3_HOST" "$TCP3_PORT" "IN3"
 
 # ============================================================
-# Auto enable / disable inverter transport nodes
-# - serial valid => serial enabled / tcp disabled
-# - tcp valid    => tcp enabled / serial disabled
-# - invalid/not configured => all disabled
+# MQTT BROKER PATCH
 # ============================================================
-INV1_ACTIVE_MODE="none"
-INV2_ACTIVE_MODE="none"
-INV3_ACTIVE_MODE="none"
-
-if [ "$INV1_TRANSPORT" = "serial" ] && is_valid_serial_port "$SERIAL_1"; then
-  INV1_ACTIVE_MODE="serial"
-elif [ "$INV1_TRANSPORT" = "tcp" ] && is_valid_host "$INV1_HOST" && is_valid_port "$INV1_PORT"; then
-  INV1_ACTIVE_MODE="tcp"
-fi
-
-if [ "$INV2_TRANSPORT" = "serial" ] && is_valid_serial_port "$SERIAL_2"; then
-  INV2_ACTIVE_MODE="serial"
-elif [ "$INV2_TRANSPORT" = "tcp" ] && is_valid_host "$INV2_HOST" && is_valid_port "$INV2_PORT"; then
-  INV2_ACTIVE_MODE="tcp"
-fi
-
-if [ "$INV3_TRANSPORT" = "serial" ] && is_valid_serial_port "$SERIAL_3"; then
-  INV3_ACTIVE_MODE="serial"
-elif [ "$INV3_TRANSPORT" = "tcp" ] && is_valid_host "$INV3_HOST" && is_valid_port "$INV3_PORT"; then
-  INV3_ACTIVE_MODE="tcp"
-fi
-
-case "$INV1_ACTIVE_MODE" in
-  serial)
-    set_node_disabled_by_name "serial-port" "Serial inv 1" false
-    set_tcp_node_disabled_by_name "tcp out inv 1" true
-    set_tcp_node_disabled_by_name "tcp in inv 1" true
-    ;;
-  tcp)
-    set_node_disabled_by_name "serial-port" "Serial inv 1" true
-    set_tcp_node_disabled_by_name "tcp out inv 1" false
-    set_tcp_node_disabled_by_name "tcp in inv 1" false
-    ;;
-  *)
-    set_node_disabled_by_name "serial-port" "Serial inv 1" true
-    set_tcp_node_disabled_by_name "tcp out inv 1" true
-    set_tcp_node_disabled_by_name "tcp in inv 1" true
-    ;;
-esac
-
-case "$INV2_ACTIVE_MODE" in
-  serial)
-    set_node_disabled_by_name "serial-port" "Serial inv 2" false
-    set_tcp_node_disabled_by_name "tcp out inv 2" true
-    set_tcp_node_disabled_by_name "tcp in inv 2" true
-    ;;
-  tcp)
-    set_node_disabled_by_name "serial-port" "Serial inv 2" true
-    set_tcp_node_disabled_by_name "tcp out inv 2" false
-    set_tcp_node_disabled_by_name "tcp in inv 2" false
-    ;;
-  *)
-    set_node_disabled_by_name "serial-port" "Serial inv 2" true
-    set_tcp_node_disabled_by_name "tcp out inv 2" true
-    set_tcp_node_disabled_by_name "tcp in inv 2" true
-    ;;
-esac
-
-case "$INV3_ACTIVE_MODE" in
-  serial)
-    set_node_disabled_by_name "serial-port" "Serial inv 3" false
-    set_tcp_node_disabled_by_name "tcp out inv 3" true
-    set_tcp_node_disabled_by_name "tcp in inv 3" true
-    ;;
-  tcp)
-    set_node_disabled_by_name "serial-port" "Serial inv 3" true
-    set_tcp_node_disabled_by_name "tcp out inv 3" false
-    set_tcp_node_disabled_by_name "tcp in inv 3" false
-    ;;
-  *)
-    set_node_disabled_by_name "serial-port" "Serial inv 3" true
-    set_tcp_node_disabled_by_name "tcp out inv 3" true
-    set_tcp_node_disabled_by_name "tcp in inv 3" true
-    ;;
-esac
-
-# ============================================================
-# MQTT broker patch
-# ============================================================
-if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
+if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' "$FLOWS" >/dev/null 2>&1; then
   loge 'Aucun mqtt-broker nommé "HA MQTT Broker" trouvé dans flows.json'
   exit 1
 fi
+
+logi "Injection MQTT (broker/port/user) dans flows.json"
 
 jq \
   --arg host "$MQTT_HOST" \
@@ -414,40 +505,51 @@ jq \
     else .
     end
   )
-  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+' "$FLOWS" > "$TMP" && mv "$TMP" "$FLOWS"
 
 # ============================================================
-# flows_cred.json
+# FLOWS_CRED.JSON
 # ============================================================
-if [ -f /data/flows_cred.json ]; then
-  rm -f /data/flows_cred.json
+if [ -f "$FLOWS_CRED" ]; then
+  rm -f "$FLOWS_CRED"
+  logw "Ancien flows_cred.json supprimé"
 fi
 
-BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' /data/flows.json)"
+BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' "$FLOWS")"
 
-if [ -z "$BROKER_ID" ]; then
+if [ -z "$BROKER_ID" ] || [ "$BROKER_ID" = "null" ]; then
   loge "Impossible de récupérer l'ID du node mqtt-broker dans flows.json"
   exit 1
 fi
+
+logi "Broker node ID: $BROKER_ID — Création flows_cred.json"
 
 jq -n \
   --arg id "$BROKER_ID" \
   --arg user "$MQTT_USER" \
   --arg pass "$MQTT_PASS" \
   '{($id): {"user": $user, "password": $pass}}' \
-  > /data/flows_cred.json
+  > "$FLOWS_CRED"
+
+logi "flows_cred.json créé avec succès"
 
 # ============================================================
-# Summary log
+# DASHBOARD INFO
 # ============================================================
-logi "Config OK | MQTT=${MQTT_HOST}:${MQTT_PORT} | TZ=${ADDON_TIMEZONE} | Battery=${BATTERY_SYSTEM_VOLTAGE}V | Cards=${DASHBOARD_CUSTOM_CARDS_INSTALLED} | inv1=${INV1_ACTIVE_MODE} inv2=${INV2_ACTIVE_MODE} inv3=${INV3_ACTIVE_MODE}"
-
-if [ "$DASHBOARD_CUSTOM_CARDS_INSTALLED" != "true" ]; then
+if [ "$DASHBOARD_CUSTOM_CARDS_INSTALLED" = "true" ]; then
+  logi "Dashboard premium: mode custom cards activé"
+else
   logw "Dashboard premium: mode dégradé natif HA actif tant que dashboard_custom_cards_installed=false"
 fi
 
+logi "Dashboard directories prepared: $DASHBOARDS_DIR"
+
 # ============================================================
-# Start Node-RED
+# START NODE-RED
 # ============================================================
+export HOME="/data"
+export NODE_PATH="/data/node_modules"
+export TZ="$ADDON_TIMEZONE"
+
 logi "Starting Node-RED sur le port 1892..."
 exec node-red --userDir /data --settings /addon/settings.js
