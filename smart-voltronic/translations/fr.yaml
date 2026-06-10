@@ -2,92 +2,236 @@ configuration:
 
   inv1_link:
     name: Type de connexion onduleur 1
-    description: Sélectionnez comment l'onduleur 1 est connecté.
+    description: >
+      Choisissez comment l'onduleur 1 est connecté à Home Assistant.
+      Sélectionnez "serial" pour une connexion directe via un câble USB/RS232
+      ou "gateway" si vous utilisez une passerelle réseau TCP/IP
+      (Elfin EW11, USR-TCP232 ou équivalent).
 
   inv1_serial_port:
     name: Port série onduleur 1
-    description: Port série utilisé pour communiquer avec l'onduleur 1.
+    description: >
+      Chemin du port série utilisé pour communiquer avec l'onduleur 1.
+      Exemple : /dev/serial/by-id/usb-XXXX.
+      Ce paramètre est utilisé uniquement en mode "serial".
 
   inv1_gateway_host:
-    name: Adresse gateway onduleur 1
-    description: Adresse IP de la passerelle Elfin / TCP.
+    name: Adresse IP gateway onduleur 1
+    description: >
+      Adresse IP de la passerelle TCP/IP reliée à l'onduleur 1.
+      Exemple : 192.168.1.100.
+      Utilisé uniquement en mode "gateway".
 
   inv1_gateway_port:
-    name: Port gateway onduleur 1
-    description: Port TCP de la passerelle.
+    name: Port TCP gateway onduleur 1
+    description: >
+      Port réseau utilisé par la passerelle TCP/IP.
+      La plupart des passerelles Elfin utilisent le port 8899.
+
+  inv1_display_mode:
+    name: Mode d'affichage onduleur 1
+    description: >
+      Sélectionnez le mode de fonctionnement adapté à votre modèle d'onduleur.
+      Le mode "modern" convient à la majorité des modèles récents.
+      Le mode "legacy" est destiné à certains anciens modèles Voltronic.
+
+  inv1_output_priority_2choices:
+    name: Priorité de sortie simplifiée onduleur 1
+    description: >
+      Active une gestion simplifiée de la priorité de sortie
+      pour les modèles ne proposant que deux modes de sélection.
 
   inv2_link:
     name: Type de connexion onduleur 2
-    description: Sélectionnez comment l'onduleur 2 est connecté.
+    description: >
+      Choisissez comment l'onduleur 2 est connecté à Home Assistant.
 
   inv2_serial_port:
     name: Port série onduleur 2
-    description: Port série utilisé pour communiquer avec l'onduleur 2.
+    description: >
+      Chemin du port série utilisé pour communiquer avec l'onduleur 2.
 
   inv2_gateway_host:
-    name: Adresse gateway onduleur 2
-    description: Adresse IP de la passerelle Elfin / TCP.
+    name: Adresse IP gateway onduleur 2
+    description: >
+      Adresse IP de la passerelle TCP/IP associée à l'onduleur 2.
 
   inv2_gateway_port:
-    name: Port gateway onduleur 2
-    description: Port TCP de la passerelle.
+    name: Port TCP gateway onduleur 2
+    description: >
+      Port réseau utilisé par la passerelle TCP/IP de l'onduleur 2.
+
+  inv2_display_mode:
+    name: Mode d'affichage onduleur 2
+    description: >
+      Sélectionnez le mode adapté à votre modèle d'onduleur.
+
+  inv2_output_priority_2choices:
+    name: Priorité de sortie simplifiée onduleur 2
+    description: >
+      Active la gestion simplifiée de la priorité de sortie
+      sur certains modèles compatibles.
 
   inv3_link:
     name: Type de connexion onduleur 3
-    description: Sélectionnez comment l'onduleur 3 est connecté.
+    description: >
+      Choisissez comment l'onduleur 3 est connecté à Home Assistant.
 
   inv3_serial_port:
     name: Port série onduleur 3
-    description: Port série utilisé pour communiquer avec l'onduleur 3.
+    description: >
+      Chemin du port série utilisé pour communiquer avec l'onduleur 3.
 
   inv3_gateway_host:
-    name: Adresse gateway onduleur 3
-    description: Adresse IP de la passerelle Elfin / TCP.
+    name: Adresse IP gateway onduleur 3
+    description: >
+      Adresse IP de la passerelle TCP/IP associée à l'onduleur 3.
 
   inv3_gateway_port:
-    name: Port gateway onduleur 3
-    description: Port TCP de la passerelle.
+    name: Port TCP gateway onduleur 3
+    description: >
+      Port réseau utilisé par la passerelle TCP/IP de l'onduleur 3.
+
+  inv3_display_mode:
+    name: Mode d'affichage onduleur 3
+    description: >
+      Sélectionnez le mode adapté à votre modèle d'onduleur.
+
+  inv3_output_priority_2choices:
+    name: Priorité de sortie simplifiée onduleur 3
+    description: >
+      Active la gestion simplifiée de la priorité de sortie
+      sur certains modèles compatibles.
 
   battery_section:
     name: Configuration batterie
-    description: Paramètres du système batterie.
+    description: >
+      Paramètres utilisés pour les calculs énergétiques,
+      les statistiques et certaines fonctions avancées du dashboard.
 
   battery_system_voltage:
     name: Tension du système batterie
-    description: Sélectionnez la tension du système batterie.
+    description: >
+      Sélectionnez la tension nominale de votre installation.
+      Utilisez 24V pour les systèmes 24 volts et 48V pour les systèmes 48 volts.
 
   mqtt_section:
     name: Configuration MQTT
-    description: Paramètres de connexion au broker MQTT.
+    description: >
+      Paramètres de connexion au broker MQTT utilisé pour publier
+      automatiquement les capteurs dans Home Assistant.
 
   mqtt_host:
-    name: Hôte MQTT
-    description: Adresse du broker MQTT.
+    name: Adresse du broker MQTT
+    description: >
+      Nom d'hôte ou adresse IP du serveur MQTT.
+      Avec l'add-on Mosquitto de Home Assistant, utilisez généralement
+      "core-mosquitto".
 
   mqtt_port:
     name: Port MQTT
-    description: Port utilisé par le broker MQTT.
+    description: >
+      Port utilisé pour la connexion au broker MQTT.
+      La valeur par défaut est généralement 1883.
 
   mqtt_user:
     name: Utilisateur MQTT
-    description: Nom d'utilisateur pour se connecter au broker MQTT.
+    description: >
+      Nom d'utilisateur utilisé pour se connecter au broker MQTT.
+      Laissez vide si aucune authentification n'est requise.
 
   mqtt_pass:
     name: Mot de passe MQTT
-    description: Mot de passe pour se connecter au broker MQTT.
+    description: >
+      Mot de passe associé au compte MQTT utilisé pour la connexion.
+
+  premium_section:
+    name: Licence Premium
+    description: >
+      Paramètres liés à l'activation des fonctionnalités Premium
+      du module Smart Voltronic.
+
+  premium_key:
+    name: Clé Premium
+    description: >
+      Entrez votre clé de licence Premium.
+      Une fois validée, elle débloque les fonctionnalités avancées,
+      les dashboards Premium et les calculs étendus.
+
+  inv1_battery_capacity_ah:
+    name: Capacité batterie onduleur 1 (Ah)
+    description: >
+      Capacité totale du parc batterie associé à l'onduleur 1,
+      exprimée en ampères-heures (Ah).
+
+  inv1_battery_total_capacity_kwh:
+    name: Capacité batterie onduleur 1 (kWh)
+    description: >
+      Capacité énergétique totale du parc batterie associé à l'onduleur 1,
+      exprimée en kilowattheures (kWh).
+
+  inv2_battery_capacity_ah:
+    name: Capacité batterie onduleur 2 (Ah)
+    description: >
+      Capacité totale du parc batterie associé à l'onduleur 2.
+
+  inv2_battery_total_capacity_kwh:
+    name: Capacité batterie onduleur 2 (kWh)
+    description: >
+      Capacité énergétique totale du parc batterie associé à l'onduleur 2.
+
+  inv3_battery_capacity_ah:
+    name: Capacité batterie onduleur 3 (Ah)
+    description: >
+      Capacité totale du parc batterie associé à l'onduleur 3.
+
+  inv3_battery_total_capacity_kwh:
+    name: Capacité batterie onduleur 3 (kWh)
+    description: >
+      Capacité énergétique totale du parc batterie associé à l'onduleur 3.
+
+  dashboard_section:
+    name: Dashboard Premium
+    description: >
+      Paramètres liés à la génération automatique des dashboards
+      Smart Voltronic dans Home Assistant.
+
+  dashboard_custom_cards_installed:
+    name: Cartes personnalisées installées
+    description: >
+      Activez cette option si les cartes Lovelace personnalisées
+      requises sont déjà installées dans Home Assistant.
+
+  premium_dashboard_output:
+    name: Type de dashboard à générer
+    description: >
+      Choisissez le type de dashboard généré automatiquement :
+      • lovelace : dashboard Home Assistant classique
+      • html : dashboard HTML Premium
+      • both : génération des deux versions
+      • disabled : désactive la génération automatique
 
   send_bip:
     name: Activer le bip onduleur
-    description: Active ou désactive le bip de l'onduleur lors d'un changement de paramètre.
+    description: >
+      Si activé, l'onduleur émettra un signal sonore lors
+      de certaines modifications de paramètres effectuées
+      depuis Home Assistant.
 
   timezone_section:
     name: Fuseau horaire
-    description: Configuration du fuseau horaire pour les statistiques journalières.
+    description: >
+      Utilisé pour le calcul des statistiques journalières,
+      mensuelles et annuelles.
 
   timezone_mode:
-    name: Sélection du fuseau horaire
-    description: Choisissez le fuseau horaire utilisé par l'add-on.
+    name: Fuseau horaire
+    description: >
+      Sélectionnez votre fuseau horaire afin que les compteurs,
+      historiques et statistiques soient calculés correctement.
 
   timezone_custom:
     name: Fuseau horaire personnalisé
-    description: Utilisé lorsque le mode CUSTOM est sélectionné.
+    description: >
+      Utilisé uniquement lorsque le mode CUSTOM est sélectionné.
+      Exemple : Europe/Paris, America/Montreal ou Asia/Tokyo.
