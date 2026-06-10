@@ -13,33 +13,33 @@ configuration:
     description: >
       Chemin du port série utilisé pour communiquer avec l'onduleur 1.
       Exemple : /dev/serial/by-id/usb-XXXX.
-      Ce paramètre est utilisé uniquement en mode "serial".
+      Utilisé uniquement lorsque le type de connexion est défini sur "serial".
 
   inv1_gateway_host:
     name: Adresse IP gateway onduleur 1
     description: >
-      Adresse IP de la passerelle TCP/IP reliée à l'onduleur 1.
+      Adresse IP de la passerelle TCP/IP connectée à l'onduleur 1.
       Exemple : 192.168.1.100.
-      Utilisé uniquement en mode "gateway".
+      Utilisé uniquement lorsque le type de connexion est défini sur "gateway".
 
   inv1_gateway_port:
     name: Port TCP gateway onduleur 1
     description: >
       Port réseau utilisé par la passerelle TCP/IP.
-      La plupart des passerelles Elfin utilisent le port 8899.
+      La plupart des passerelles Elfin utilisent le port 8899 par défaut.
 
   inv1_display_mode:
     name: Mode d'affichage onduleur 1
     description: >
-      Sélectionnez le mode de fonctionnement adapté à votre modèle d'onduleur.
+      Sélectionnez le mode correspondant à votre modèle d'onduleur.
       Le mode "modern" convient à la majorité des modèles récents.
-      Le mode "legacy" est destiné à certains anciens modèles Voltronic.
+      Le mode "legacy" est destiné à certains anciens modèles compatibles.
 
   inv1_output_priority_2choices:
-    name: Priorité de sortie simplifiée onduleur 1
+    name: Priorité de sortie simplifiée
     description: >
-      Active une gestion simplifiée de la priorité de sortie
-      pour les modèles ne proposant que deux modes de sélection.
+      Activez cette option si votre onduleur propose uniquement
+      deux modes de priorité de sortie au lieu des trois modes habituels.
 
   inv2_link:
     name: Type de connexion onduleur 2
@@ -54,23 +54,23 @@ configuration:
   inv2_gateway_host:
     name: Adresse IP gateway onduleur 2
     description: >
-      Adresse IP de la passerelle TCP/IP associée à l'onduleur 2.
+      Adresse IP de la passerelle TCP/IP connectée à l'onduleur 2.
 
   inv2_gateway_port:
     name: Port TCP gateway onduleur 2
     description: >
-      Port réseau utilisé par la passerelle TCP/IP de l'onduleur 2.
+      Port réseau utilisé par la passerelle TCP/IP connectée à l'onduleur 2.
 
   inv2_display_mode:
     name: Mode d'affichage onduleur 2
     description: >
-      Sélectionnez le mode adapté à votre modèle d'onduleur.
+      Sélectionnez le mode correspondant à votre modèle d'onduleur.
 
   inv2_output_priority_2choices:
-    name: Priorité de sortie simplifiée onduleur 2
+    name: Priorité de sortie simplifiée
     description: >
-      Active la gestion simplifiée de la priorité de sortie
-      sur certains modèles compatibles.
+      Activez cette option si votre onduleur propose uniquement
+      deux modes de priorité de sortie.
 
   inv3_link:
     name: Type de connexion onduleur 3
@@ -85,29 +85,29 @@ configuration:
   inv3_gateway_host:
     name: Adresse IP gateway onduleur 3
     description: >
-      Adresse IP de la passerelle TCP/IP associée à l'onduleur 3.
+      Adresse IP de la passerelle TCP/IP connectée à l'onduleur 3.
 
   inv3_gateway_port:
     name: Port TCP gateway onduleur 3
     description: >
-      Port réseau utilisé par la passerelle TCP/IP de l'onduleur 3.
+      Port réseau utilisé par la passerelle TCP/IP connectée à l'onduleur 3.
 
   inv3_display_mode:
     name: Mode d'affichage onduleur 3
     description: >
-      Sélectionnez le mode adapté à votre modèle d'onduleur.
+      Sélectionnez le mode correspondant à votre modèle d'onduleur.
 
   inv3_output_priority_2choices:
-    name: Priorité de sortie simplifiée onduleur 3
+    name: Priorité de sortie simplifiée
     description: >
-      Active la gestion simplifiée de la priorité de sortie
-      sur certains modèles compatibles.
+      Activez cette option si votre onduleur propose uniquement
+      deux modes de priorité de sortie.
 
   battery_section:
     name: Configuration batterie
     description: >
       Paramètres utilisés pour les calculs énergétiques,
-      les statistiques et certaines fonctions avancées du dashboard.
+      statistiques et fonctions avancées du dashboard.
 
   battery_system_voltage:
     name: Tension du système batterie
@@ -119,14 +119,13 @@ configuration:
     name: Configuration MQTT
     description: >
       Paramètres de connexion au broker MQTT utilisé pour publier
-      automatiquement les capteurs dans Home Assistant.
+      les données vers Home Assistant.
 
   mqtt_host:
     name: Adresse du broker MQTT
     description: >
-      Nom d'hôte ou adresse IP du serveur MQTT.
-      Avec l'add-on Mosquitto de Home Assistant, utilisez généralement
-      "core-mosquitto".
+      Adresse IP ou nom d'hôte du broker MQTT.
+      Avec l'add-on Mosquitto de Home Assistant, utilisez généralement "core-mosquitto".
 
   mqtt_port:
     name: Port MQTT
@@ -138,25 +137,25 @@ configuration:
     name: Utilisateur MQTT
     description: >
       Nom d'utilisateur utilisé pour se connecter au broker MQTT.
-      Laissez vide si aucune authentification n'est requise.
 
   mqtt_pass:
     name: Mot de passe MQTT
     description: >
-      Mot de passe associé au compte MQTT utilisé pour la connexion.
+      Mot de passe associé au compte MQTT.
 
   premium_section:
     name: Licence Premium
     description: >
-      Paramètres liés à l'activation des fonctionnalités Premium
-      du module Smart Voltronic.
+      Paramètres liés à l'activation des fonctionnalités Premium.
 
   premium_key:
     name: Clé Premium
     description: >
-      Entrez votre clé de licence Premium.
-      Une fois validée, elle débloque les fonctionnalités avancées,
-      les dashboards Premium et les calculs étendus.
+      Entrez votre clé de licence Premium Smart Voltronic.
+
+      Une licence valide débloque les fonctionnalités avancées,
+      les statistiques étendues, les dashboards Premium et les futures
+      fonctionnalités réservées aux utilisateurs Premium.
 
   inv1_battery_capacity_ah:
     name: Capacité batterie onduleur 1 (Ah)
@@ -167,13 +166,16 @@ configuration:
   inv1_battery_total_capacity_kwh:
     name: Capacité batterie onduleur 1 (kWh)
     description: >
-      Capacité énergétique totale du parc batterie associé à l'onduleur 1,
-      exprimée en kilowattheures (kWh).
+      Capacité énergétique totale du parc batterie associé à l'onduleur 1.
+
+      Cette information est utilisée pour certains calculs avancés,
+      statistiques Premium et affichages du dashboard.
 
   inv2_battery_capacity_ah:
     name: Capacité batterie onduleur 2 (Ah)
     description: >
-      Capacité totale du parc batterie associé à l'onduleur 2.
+      Capacité totale du parc batterie associé à l'onduleur 2,
+      exprimée en ampères-heures (Ah).
 
   inv2_battery_total_capacity_kwh:
     name: Capacité batterie onduleur 2 (kWh)
@@ -183,7 +185,8 @@ configuration:
   inv3_battery_capacity_ah:
     name: Capacité batterie onduleur 3 (Ah)
     description: >
-      Capacité totale du parc batterie associé à l'onduleur 3.
+      Capacité totale du parc batterie associé à l'onduleur 3,
+      exprimée en ampères-heures (Ah).
 
   inv3_battery_total_capacity_kwh:
     name: Capacité batterie onduleur 3 (kWh)
@@ -193,45 +196,52 @@ configuration:
   dashboard_section:
     name: Dashboard Premium
     description: >
-      Paramètres liés à la génération automatique des dashboards
-      Smart Voltronic dans Home Assistant.
+      Paramètres liés à la génération automatique des dashboards.
 
   dashboard_custom_cards_installed:
-    name: Cartes personnalisées installées
+    name: Cartes Lovelace installées
     description: >
-      Activez cette option si les cartes Lovelace personnalisées
-      requises sont déjà installées dans Home Assistant.
+      Activez cette option uniquement si toutes les cartes Lovelace
+      personnalisées nécessaires sont déjà installées.
+
+      Cette option n'est pas nécessaire pour les dashboards HTML.
 
   premium_dashboard_output:
     name: Type de dashboard à générer
     description: >
-      Choisissez le type de dashboard généré automatiquement :
-      • lovelace : dashboard Home Assistant classique
-      • html : dashboard HTML Premium
-      • both : génération des deux versions
-      • disabled : désactive la génération automatique
+      Choisissez le type de dashboard à générer automatiquement.
+
+      • Lovelace : dashboard Home Assistant classique.
+
+      • HTML : dashboard Smart Energy Premium moderne et autonome.
+
+      • Les deux : génère simultanément les dashboards Lovelace et HTML.
+
+      • Désactivé : désactive toute génération automatique.
+
+      Le mode HTML nécessite une licence Premium active.
 
   send_bip:
     name: Activer le bip onduleur
     description: >
-      Si activé, l'onduleur émettra un signal sonore lors
-      de certaines modifications de paramètres effectuées
-      depuis Home Assistant.
+      Lorsque cette option est activée, l'onduleur émet un signal sonore
+      lors de certaines modifications effectuées depuis Home Assistant.
 
   timezone_section:
     name: Fuseau horaire
     description: >
-      Utilisé pour le calcul des statistiques journalières,
+      Paramètres utilisés pour le calcul des statistiques journalières,
       mensuelles et annuelles.
 
   timezone_mode:
     name: Fuseau horaire
     description: >
-      Sélectionnez votre fuseau horaire afin que les compteurs,
-      historiques et statistiques soient calculés correctement.
+      Sélectionnez le fuseau horaire utilisé pour les calculs
+      des compteurs et historiques énergétiques.
 
   timezone_custom:
     name: Fuseau horaire personnalisé
     description: >
       Utilisé uniquement lorsque le mode CUSTOM est sélectionné.
+
       Exemple : Europe/Paris, America/Montreal ou Asia/Tokyo.
