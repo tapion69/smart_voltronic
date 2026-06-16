@@ -69,14 +69,15 @@ options:
   inv3_battery_total_capacity_kwh: 0
 
   dashboard_section: "────────── DASHBOARD ──────────"
+  dashboard_output: "lovelace"
   dashboard_custom_cards_installed: false
-  premium_dashboard_output: "lovelace"
+  dashboard_language: "en"
 
   send_bip: true
 
   timezone_section: "────────── TIMEZONE ──────────"
   timezone_mode: "Europe/Paris"
-  timezone_custom: "UTC"
+  timezone_custom: ""
 
 schema:
   inv1_link: list(serial|gateway)
@@ -120,11 +121,12 @@ schema:
   inv3_battery_total_capacity_kwh: float?
 
   dashboard_section: str?
+  dashboard_output: list(lovelace|html|both|disabled)
   dashboard_custom_cards_installed: bool
-  premium_dashboard_output: list(lovelace|html|both|disabled)
+  dashboard_language: list(en|fr)
 
   send_bip: bool
 
   timezone_section: str?
-  timezone_mode: list(Europe/Paris|Europe/Berlin|Europe/Brussels|Europe/Madrid|Europe/Rome|Europe/London|America/New_York|America/Chicago|America/Los_Angeles|America/Montreal|Asia/Dubai|Asia/Tokyo|Australia/Sydney|CUSTOM)
+  timezone_mode: list(UTC|Europe/Paris|Europe/Berlin|Europe/Brussels|Europe/Madrid|Europe/Rome|Europe/London|Africa/Johannesburg|Africa/Casablanca|America/New_York|America/Chicago|America/Los_Angeles|America/Montreal|Asia/Dubai|Asia/Tokyo|Australia/Sydney|CUSTOM)
   timezone_custom: str?
