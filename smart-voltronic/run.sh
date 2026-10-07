@@ -17,6 +17,10 @@ fi
 
 logi "Smart Voltronic: init..."
 
+logi "Node.js runtime: $(node --version 2>/dev/null || echo unknown)"
+logi "npm runtime: $(npm --version 2>/dev/null || echo unknown)"
+logi "Node-RED runtime: $(node-red --version 2>/dev/null | head -n 1 || echo unknown)"
+
 OPTS="/data/options.json"
 FLOWS="/data/flows.json"
 FLOWS_CRED="/data/flows_cred.json"
@@ -27,6 +31,11 @@ ADDON_DATA_DIR="/data/smart-voltronic"
 ADDON_FLOWS="/addon/flows.json"
 ADDON_FLOWS_VERSION_FILE="/addon/flows_version.txt"
 DATA_FLOWS_VERSION_FILE="/data/flows_version.txt"
+
+# Node-RED 5 / Node.js 24 migration
+SERIALPORT_PACKAGE="node-red-node-serialport"
+SERIALPORT_VERSION="2.0.3"
+NODE_RUNTIME_MARKER="/data/.smart_voltronic_node_runtime"
 
 mkdir -p /data
 mkdir -p /config
@@ -118,6 +127,7 @@ normalize_timezone() {
     sign="${offset:0:1}"
     hours="${offset:1}"
     hours="$(printf '%d' "$hours" 2>/dev/null || echo "")"
+
     if [ -n "$hours" ] && [ "$hours" -ge 0 ] && [ "$hours" -le 14 ]; then
       if [ "$sign" = "+" ]; then
         echo "Etc/GMT-$hours"
@@ -132,6 +142,7 @@ normalize_timezone() {
     sign="${upper:0:1}"
     hours="${upper:1}"
     hours="$(printf '%d' "$hours" 2>/dev/null || echo "")"
+
     if [ -n "$hours" ] && [ "$hours" -ge 0 ] && [ "$hours" -le 14 ]; then
       if [ "$sign" = "+" ]; then
         echo "Etc/GMT-$hours"
@@ -147,6 +158,7 @@ normalize_timezone() {
 
 validate_timezone_or_fallback() {
   local tz="$1"
+
   if timezone_exists "$tz"; then
     echo "$tz"
   else
@@ -155,13 +167,16 @@ validate_timezone_or_fallback() {
 }
 
 install_build_tools_if_needed() {
-  if command -v gcc >/dev/null 2>&1 && command -v g++ >/dev/null 2>&1 && command -v make >/dev/null 2>&1; then
+  if command -v gcc >/dev/null 2>&1 && \
+     command -v g++ >/dev/null 2>&1 && \
+     command -v make >/dev/null 2>&1; then
     logi "Build tools déjà présents"
     return 0
   fi
 
   logw "Build tools absents, tentative d'installation runtime..."
-  if apk add --no-cache python3 make g++; then
+
+  if apk add --no-cache python3 make g++ linux-headers; then
     logi "Build tools installés avec succès"
     return 0
   fi
@@ -185,33 +200,111 @@ install_node_red_nodes() {
     npm init -y >/dev/null 2>&1
   fi
 
-  local required_nodes=(
-    "node-red-node-serialport"
-  )
+  local node_version
+  local node_abi
+  local runtime_signature
+  local previous_runtime_signature
+  local installed_version
 
-  local node
-  for node in "${required_nodes[@]}"; do
-    if [ -d "/data/node_modules/$node" ]; then
-      logi "Node déjà installé: $node"
-      continue
+  node_version="$(node --version 2>/dev/null || echo unknown)"
+  node_abi="$(node -p 'process.versions.modules || "unknown"' 2>/dev/null || echo unknown)"
+
+  runtime_signature="${node_version}|abi=${node_abi}|${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+  previous_runtime_signature="$(cat "$NODE_RUNTIME_MARKER" 2>/dev/null || echo "")"
+
+  installed_version="$(
+    node -p "
+      try {
+        require('/data/node_modules/${SERIALPORT_PACKAGE}/package.json').version
+      } catch (e) {
+        ''
+      }
+    " 2>/dev/null || echo ""
+  )"
+
+  # -------------------------------------------------
+  # Installation / mise à niveau du node Serial
+  # -------------------------------------------------
+  if [ "$installed_version" != "$SERIALPORT_VERSION" ]; then
+
+    if [ -n "$installed_version" ]; then
+      logi "Mise à jour ${SERIALPORT_PACKAGE}: ${installed_version} -> ${SERIALPORT_VERSION}"
+    else
+      logi "Installation ${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
     fi
 
-    logi "Installation du node Node-RED: $node"
-    if npm install --unsafe-perm --no-audit --no-fund "$node"; then
-      logi "Node installé avec succès: $node"
-      continue
+    if ! npm install \
+      --unsafe-perm \
+      --no-audit \
+      --no-fund \
+      "${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+    then
+      logw "Échec installation simple, tentative avec build tools"
+
+      install_build_tools_if_needed || true
+
+      if ! npm install \
+        --unsafe-perm \
+        --no-audit \
+        --no-fund \
+        "${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+      then
+        loge "Échec installation ${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+        exit 1
+      fi
     fi
 
-    logw "Échec installation simple pour $node, tentative avec build tools"
+    installed_version="$SERIALPORT_VERSION"
+  else
+    logi "${SERIALPORT_PACKAGE}@${installed_version} déjà installé"
+  fi
+
+  # -------------------------------------------------
+  # Rebuild natif si Node.js / ABI / version change
+  #
+  # Important lors du passage Node.js ancien -> Node.js 24 :
+  # /data est persistant et peut contenir un ancien binding natif.
+  # -------------------------------------------------
+  if [ "$previous_runtime_signature" != "$runtime_signature" ]; then
+
+    logw "Changement runtime détecté : recompilation Serialport"
+    logi "Ancien runtime: ${previous_runtime_signature:-aucun}"
+    logi "Nouveau runtime: ${runtime_signature}"
+
     install_build_tools_if_needed || true
 
-    if npm install --unsafe-perm --no-audit --no-fund "$node"; then
-      logi "Node installé avec succès après fallback: $node"
+    if npm rebuild --build-from-source @serialport/bindings-cpp; then
+      logi "Serialport recompilé avec succès pour ${node_version} (ABI ${node_abi})"
     else
-      loge "Échec installation node: $node"
-      exit 1
+      logw "Rebuild direct échoué, réinstallation complète de Serialport"
+
+      rm -rf \
+        "/data/node_modules/${SERIALPORT_PACKAGE}" \
+        "/data/node_modules/@serialport"
+
+      if ! npm install \
+        --unsafe-perm \
+        --no-audit \
+        --no-fund \
+        "${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+      then
+        loge "Impossible de réinstaller ${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+        exit 1
+      fi
+
+      if ! npm rebuild --build-from-source @serialport/bindings-cpp; then
+        loge "Impossible de compiler @serialport/bindings-cpp pour ${node_version}"
+        exit 1
+      fi
+
+      logi "Serialport réinstallé et recompilé avec succès"
     fi
-  done
+
+    printf '%s\n' "$runtime_signature" > "$NODE_RUNTIME_MARKER"
+
+  else
+    logi "Runtime Node.js / Serialport inchangé : aucune recompilation nécessaire"
+  fi
 }
 
 update_serial_config_by_name() {
@@ -225,7 +318,10 @@ update_serial_config_by_name() {
   fi
 
   local exists
-  exists="$(jq -r --arg name "$node_name" '.[] | select(.type=="serial-port" and .name==$name) | .name' "$FLOWS" 2>/dev/null || echo "")"
+
+  exists="$(jq -r --arg name "$node_name" \
+    '.[] | select(.type=="serial-port" and .name==$name) | .name' \
+    "$FLOWS" 2>/dev/null || echo "")"
 
   if [ -z "$exists" ]; then
     logw "Noeud serial-port name '$node_name' introuvable dans flows.json (${label})"
@@ -244,32 +340,6 @@ update_serial_config_by_name() {
   logi "Port serial mis à jour : ${label} -> name=${node_name} port=${serial_value}"
 }
 
-update_tcp_host_port_by_name() {
-  local node_name="$1"
-  local host="$2"
-  local port="$3"
-  local label="$4"
-
-  local exists
-  exists="$(jq -r --arg name "$node_name" '.[] | select((.type=="tcp in" or .type=="tcp out" or .type=="tcp request") and .name==$name) | .name' "$FLOWS" 2>/dev/null || echo "")"
-
-  if [ -z "$exists" ]; then
-    logw "Noeud TCP name '$node_name' introuvable dans flows.json (${label})"
-    return 0
-  fi
-
-  jq --arg name "$node_name" --arg host "$host" --arg port "$port" '
-    map(
-      if (.type=="tcp in" or .type=="tcp out" or .type=="tcp request") and .name == $name
-      then .host = $host | .port = $port
-      else .
-      end
-    )
-  ' "$FLOWS" > "$TMP" && mv "$TMP" "$FLOWS"
-
-  logi "TCP ${label} -> name=${node_name} host=${host} port=${port}"
-}
-
 # ============================================================
 # PREMIUM
 # ============================================================
@@ -285,6 +355,7 @@ export SMART_VOLTRONIC_INSTANCE_ID
 export SMART_VOLTRONIC_PREMIUM_KEY
 
 logi "Premium instance_id: $SMART_VOLTRONIC_INSTANCE_ID"
+
 if [ -n "$SMART_VOLTRONIC_PREMIUM_KEY" ]; then
   logi "Premium key: configured"
 else
@@ -307,7 +378,9 @@ logi "Dashboard language: $DASHBOARD_LANGUAGE"
 # OPTIONS
 # ============================================================
 SEND_BIP="$(jq -r '(.send_bip // true) | if . == true then "true" else "false" end' "$OPTS")"
+
 export SEND_BIP
+
 logi "Send bip enabled: $SEND_BIP"
 
 # ============================================================
@@ -347,6 +420,7 @@ TZ_NORMALIZED="$(normalize_timezone "$TZ_REQUESTED")"
 ADDON_TIMEZONE="$(validate_timezone_or_fallback "$TZ_NORMALIZED")"
 
 TIMEZONE_VALID="true"
+
 if [ "$ADDON_TIMEZONE" != "$TZ_NORMALIZED" ]; then
   TIMEZONE_VALID="false"
 fi
@@ -364,6 +438,7 @@ export ADDON_TIMEZONE_VALID="$TIMEZONE_VALID"
 
 logi "Timezone requested: ${ADDON_TIMEZONE_REQUESTED}"
 logi "Timezone normalized: ${ADDON_TIMEZONE_NORMALIZED}"
+
 if [ "$ADDON_TIMEZONE_VALID" = "true" ]; then
   logi "Timezone active: ${ADDON_TIMEZONE}"
 else
@@ -374,7 +449,11 @@ fi
 # ============================================================
 # BATTERY SYSTEM VOLTAGE
 # ============================================================
-BATTERY_SYSTEM_VOLTAGE_RAW="$(jq -r '.battery_system_voltage // "48V"' "$OPTS" | tr '[:lower:]' '[:upper:]' | tr -d ' ')"
+BATTERY_SYSTEM_VOLTAGE_RAW="$(
+  jq -r '.battery_system_voltage // "48V"' "$OPTS" |
+  tr '[:lower:]' '[:upper:]' |
+  tr -d ' '
+)"
 
 case "$BATTERY_SYSTEM_VOLTAGE_RAW" in
   24|24V) BATTERY_SYSTEM_VOLTAGE="24" ;;
@@ -383,6 +462,7 @@ case "$BATTERY_SYSTEM_VOLTAGE_RAW" in
 esac
 
 export BATTERY_SYSTEM_VOLTAGE
+
 logi "Battery system voltage (options.json): ${BATTERY_SYSTEM_VOLTAGE}V"
 
 # ============================================================
@@ -420,10 +500,12 @@ if [ "$INV1_TRANSPORT" = "tcp" ] && [ -z "$INV1_HOST" ]; then
   loge "Inv1: inv1_link=gateway mais inv1_gateway_host est vide dans la config."
   exit 1
 fi
+
 if [ "$INV2_TRANSPORT" = "tcp" ] && [ -z "$INV2_HOST" ]; then
   loge "Inv2: inv2_link=gateway mais inv2_gateway_host est vide dans la config."
   exit 1
 fi
+
 if [ "$INV3_TRANSPORT" = "tcp" ] && [ -z "$INV3_HOST" ]; then
   loge "Inv3: inv3_link=gateway mais inv3_gateway_host est vide dans la config."
   exit 1
@@ -440,18 +522,30 @@ export SERIAL_1 SERIAL_2 SERIAL_3
 install_node_red_nodes
 
 # ============================================================
-# FLOWS UPDATE
+# FLOWS UPDATE + VERSION SMART VOLTRONIC
 # ============================================================
 ADDON_FLOWS_VERSION="$(cat "$ADDON_FLOWS_VERSION_FILE" 2>/dev/null || echo '0.0.0')"
 INSTALLED_VERSION="$(cat "$DATA_FLOWS_VERSION_FILE" 2>/dev/null || echo '')"
 
+# Version rendue disponible dans Node-RED via env.get()
+SMART_VOLTRONIC_VERSION="$ADDON_FLOWS_VERSION"
+export SMART_VOLTRONIC_VERSION
+
+logi "Smart Voltronic version: $SMART_VOLTRONIC_VERSION"
+
 if [ ! -f "$FLOWS" ] || [ "$INSTALLED_VERSION" != "$ADDON_FLOWS_VERSION" ]; then
+
   logi "Mise à jour flows : (installé: ${INSTALLED_VERSION:-aucun}) -> (addon: $ADDON_FLOWS_VERSION)"
+
   cp "$ADDON_FLOWS" "$FLOWS"
   echo "$ADDON_FLOWS_VERSION" > "$DATA_FLOWS_VERSION_FILE"
+
   logi "flows.json mis à jour vers v$ADDON_FLOWS_VERSION"
+
 else
+
   logi "flows.json à jour (v$ADDON_FLOWS_VERSION), conservation des flows utilisateur"
+
 fi
 
 # ============================================================
@@ -462,24 +556,24 @@ update_serial_config_by_name "Serial inv 2" "$SERIAL_2" "SERIAL_2"
 update_serial_config_by_name "Serial inv 3" "$SERIAL_3" "SERIAL_3"
 
 # ============================================================
-# PATCH TCP NODES
+# TCP GATEWAY
 # ============================================================
-TCP1_HOST="$INV1_HOST"; TCP1_PORT="$INV1_PORT"
-TCP2_HOST="$INV2_HOST"; TCP2_PORT="$INV2_PORT"
-TCP3_HOST="$INV3_HOST"; TCP3_PORT="$INV3_PORT"
+#
+# Depuis la v2.0.6, les noeuds TCP ne sont plus patchés dans
+# flows.json au démarrage.
+#
+# Chaque onduleur utilise un noeud "tcp request" avec host/port
+# laissés vides. Transport Select fournit dynamiquement :
+#   msg.host
+#   msg.port
+#
+# à partir de config.invCfg / options.json.
+#
+# Cela évite les anciennes connexions TCP IN / TCP OUT séparées
+# et les déconnexions/reconnexions inutiles.
+# ============================================================
 
-if [ "$INV1_TRANSPORT" = "serial" ]; then TCP1_HOST="127.0.0.1"; TCP1_PORT="1"; fi
-if [ "$INV2_TRANSPORT" = "serial" ]; then TCP2_HOST="127.0.0.1"; TCP2_PORT="1"; fi
-if [ "$INV3_TRANSPORT" = "serial" ]; then TCP3_HOST="127.0.0.1"; TCP3_PORT="1"; fi
-
-update_tcp_host_port_by_name "tcp out inv 1" "$TCP1_HOST" "$TCP1_PORT" "OUT1"
-update_tcp_host_port_by_name "tcp in inv 1"  "$TCP1_HOST" "$TCP1_PORT" "IN1"
-
-update_tcp_host_port_by_name "tcp out inv 2" "$TCP2_HOST" "$TCP2_PORT" "OUT2"
-update_tcp_host_port_by_name "tcp in inv 2"  "$TCP2_HOST" "$TCP2_PORT" "IN2"
-
-update_tcp_host_port_by_name "tcp out inv 3" "$TCP3_HOST" "$TCP3_PORT" "OUT3"
-update_tcp_host_port_by_name "tcp in inv 3"  "$TCP3_HOST" "$TCP3_PORT" "IN3"
+logi "TCP gateway: configuration dynamique via Transport Select / tcp request"
 
 # ============================================================
 # MQTT BROKER PATCH
@@ -515,7 +609,9 @@ if [ -f "$FLOWS_CRED" ]; then
   logw "Ancien flows_cred.json supprimé"
 fi
 
-BROKER_ID="$(jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' "$FLOWS")"
+BROKER_ID="$(
+  jq -r '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker") | .id' "$FLOWS"
+)"
 
 if [ -z "$BROKER_ID" ] || [ "$BROKER_ID" = "null" ]; then
   loge "Impossible de récupérer l'ID du node mqtt-broker dans flows.json"
