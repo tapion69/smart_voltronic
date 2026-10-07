@@ -17,10 +17,6 @@ fi
 
 logi "Smart Voltronic: init..."
 
-logi "Node.js runtime: $(node --version 2>/dev/null || echo unknown)"
-logi "npm runtime: $(npm --version 2>/dev/null || echo unknown)"
-logi "Node-RED runtime: $(node-red --version 2>/dev/null | head -n 1 || echo unknown)"
-
 OPTS="/data/options.json"
 FLOWS="/data/flows.json"
 FLOWS_CRED="/data/flows_cred.json"
@@ -32,7 +28,7 @@ ADDON_FLOWS="/addon/flows.json"
 ADDON_FLOWS_VERSION_FILE="/addon/flows_version.txt"
 DATA_FLOWS_VERSION_FILE="/data/flows_version.txt"
 
-# Node-RED 5 / Node.js 24 migration
+# Node.js / Serialport runtime compatibility
 SERIALPORT_PACKAGE="node-red-node-serialport"
 SERIALPORT_VERSION="2.0.3"
 NODE_RUNTIME_MARKER="/data/.smart_voltronic_node_runtime"
@@ -223,7 +219,7 @@ install_node_red_nodes() {
   )"
 
   # -------------------------------------------------
-  # Installation / mise à niveau du node Serial
+  # Installation / mise à niveau de Serialport
   # -------------------------------------------------
   if [ "$installed_version" != "$SERIALPORT_VERSION" ]; then
 
@@ -260,23 +256,21 @@ install_node_red_nodes() {
   fi
 
   # -------------------------------------------------
-  # Rebuild natif si Node.js / ABI / version change
+  # Rebuild natif uniquement si le runtime change
   #
-  # Important lors du passage Node.js ancien -> Node.js 24 :
-  # /data est persistant et peut contenir un ancien binding natif.
+  # /data est persistant : après une mise à jour majeure
+  # de Node.js, un ancien binding natif peut rester présent.
   # -------------------------------------------------
   if [ "$previous_runtime_signature" != "$runtime_signature" ]; then
 
-    logw "Changement runtime détecté : recompilation Serialport"
-    logi "Ancien runtime: ${previous_runtime_signature:-aucun}"
-    logi "Nouveau runtime: ${runtime_signature}"
+    logi "Changement runtime Node.js détecté : vérification Serialport"
 
     install_build_tools_if_needed || true
 
     if npm rebuild --build-from-source @serialport/bindings-cpp; then
-      logi "Serialport recompilé avec succès pour ${node_version} (ABI ${node_abi})"
+      logi "Serialport recompilé pour ${node_version} (ABI ${node_abi})"
     else
-      logw "Rebuild direct échoué, réinstallation complète de Serialport"
+      logw "Rebuild Serialport échoué, réinstallation complète"
 
       rm -rf \
         "/data/node_modules/${SERIALPORT_PACKAGE}" \
@@ -301,9 +295,8 @@ install_node_red_nodes() {
     fi
 
     printf '%s\n' "$runtime_signature" > "$NODE_RUNTIME_MARKER"
-
   else
-    logi "Runtime Node.js / Serialport inchangé : aucune recompilation nécessaire"
+    logi "Runtime Node.js / Serialport inchangé"
   fi
 }
 
