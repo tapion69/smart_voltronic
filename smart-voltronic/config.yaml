@@ -6,9 +6,6 @@ description: "Node-RED Voltronic plug & play: flow mis à jour via MAJ add-on"
 arch:
   - aarch64
   - amd64
-  - armv7
-  - armhf
-  - i386
 
 startup: services
 boot: auto
@@ -128,3 +125,8 @@ schema:
   dashboard_language: list(en|fr)
 
   send_bip: bool
+
+  timezone_section: str?
+  timezone_mode: list(UTC|Europe/Paris|Europe/Berlin|Europe/Brussels|Europe/Madrid|Europe/Rome|Europe/London|Africa/Johannesburg|Africa/Casablanca|America/New_York|America/Chicago|America/Los_Angeles|America/Montreal|Asia/Dubai|Asia/Tokyo|Australia/Sydney|CUSTOM)
+  timezone_custom: str?
+
