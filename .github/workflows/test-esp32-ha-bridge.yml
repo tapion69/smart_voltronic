@@ -28,4 +28,5 @@ jobs:
         run: |
           grep -q 'list(serial|gateway|esp32)' smart-voltronic/config.yaml
           grep -q 'esp32)' smart-voltronic/run.sh
-          grep -q 'INV1_ESP_WRITE_ENABLED' smart-voltronic/run.sh
+          grep -Fq 'INV${n}_ESP_WRITE_ENABLED' smart-voltronic/run.sh
+          grep -q 'espfull_unpack_1' smart-voltronic/flows.json
