@@ -274,6 +274,34 @@ update_tcp_host_port "676593474485375b" "$TCP2_HOST" "$TCP2_PORT" "IN2"
 update_tcp_host_port "edb28c0311499138" "$TCP3_HOST" "$TCP3_PORT" "OUT3"
 update_tcp_host_port "6178939eaeb81b59" "$TCP3_HOST" "$TCP3_PORT" "IN3"
 
+# ---------- Per-inverter ESP mode: disable legacy I/O nodes only ----------
+# Never even open an old local serial/TCP endpoint when the ESP owns UART.
+# _esp_bridge_disabled tracks only bridge-added disables, so a switch back to
+# serial/gateway restores the previous node without overriding user's d=true.
+set_io_mode() {
+  local n="$1" mode="$2" ids
+  case "$n" in
+    1) ids='["ee75b8b24f06bd32","8be1a4bda6cf1027","affc083c1b7614e8","860cc648606abc47"]' ;;
+    2) ids='["4f05f81d6e3662a6","9efe66c0142e7183","faacf46b9ccb1349","676593474485375b"]' ;;
+    3) ids='["8d6598c166d176e0","9a5d93478a7d5cb2","edb28c0311499138","6178939eaeb81b59"]' ;;
+    *) return 1 ;;
+  esac
+  jq --arg mode "$mode" --argjson ids "$ids" '
+    map(
+      if (.id as $nodeId | ($ids | index($nodeId)) != null) then
+        if $mode == "esp32" then
+          .d = true | ._esp_bridge_disabled = true
+        elif ._esp_bridge_disabled == true then
+          del(.d, ._esp_bridge_disabled)
+        else . end
+      else . end
+    )
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+}
+set_io_mode 1 "$INV1_TRANSPORT"
+set_io_mode 2 "$INV2_TRANSPORT"
+set_io_mode 3 "$INV3_TRANSPORT"
+
 # ---------- Injection MQTT dans le node mqtt-broker ----------
 if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
   loge 'Aucun mqtt-broker nommé "HA MQTT Broker" trouvé dans flows.json'
