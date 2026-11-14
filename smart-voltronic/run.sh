@@ -143,9 +143,9 @@ update_serial_port() {
   logi "Port serial mis à jour : ${label} -> ${serial_value}"
 }
 
-update_serial_port "c546b54ae425b9d2" "$SERIAL_1" "SERIAL_1"
-update_serial_port "55a40ce3e960db15" "$SERIAL_2" "SERIAL_2"
-update_serial_port "39e06a015d18096d" "$SERIAL_3" "SERIAL_3"
+update_serial_port "128a99ca861bd3f8" "$SERIAL_1" "SERIAL_1"
+update_serial_port "4d203e7ceee61fed" "$SERIAL_2" "SERIAL_2"
+update_serial_port "bf8d21a7f1d69392" "$SERIAL_3" "SERIAL_3"
 
 # =====================================================================
 # GATEWAY / SERIAL : lecture depuis config add-on
@@ -237,42 +237,30 @@ export INV1_PORT INV2_PORT INV3_PORT
 # PATCH TCP IN/OUT host/port dans flows.json (via jq + IDs fixes)
 # =====================================================================
 
-update_tcp_host_port() {
-  local node_id="$1"
-  local host="$2"
-  local port="$3"
-  local label="$4"
-
-  jq --arg id "$node_id" --arg host "$host" --arg port "$port" '
-    map(
-      if .id == $id then
-        .host = $host | .port = $port
-      else .
-      end
-    )
+update_tcp_server_port() {
+  local id="$1" host="$2" port="$3" label="$4"
+  jq --arg id "$id" --arg host "$host" --arg port "$port" '
+    map(if .id==$id then .server=$host | .port=$port else . end)
   ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
-
-  logi "TCP ${label} -> host=${host} port=${port}"
+  logi "TCP request ${label} configured"
 }
+# One tcp-request node per inverter in the complete 322-node flow.
+for i in 1 2 3; do
+  transport_var="INV${i}_TRANSPORT"
+  host_var="INV${i}_HOST"
+  port_var="INV${i}_PORT"
+  transport="${!transport_var}"
+  host="${!host_var}"
+  port="${!port_var}"
+  if [ "$transport" != "tcp" ]; then host="127.0.0.1"; port="1"; fi
+  case "$i" in
+    1) id="1e1a7ad9eb6b2a52" ;;
+    2) id="63bcf98463aab41a" ;;
+    3) id="b8fce564589ea5e6" ;;
+  esac
+  update_tcp_server_port "$id" "$host" "$port" "INV${i}"
+done
 
-# Pour éviter que les nodes TCP essaient de se connecter en mode serial :
-TCP1_HOST="$INV1_HOST"; TCP1_PORT="$INV1_PORT"
-TCP2_HOST="$INV2_HOST"; TCP2_PORT="$INV2_PORT"
-TCP3_HOST="$INV3_HOST"; TCP3_PORT="$INV3_PORT"
-
-if [ "$INV1_TRANSPORT" != "tcp" ]; then TCP1_HOST="127.0.0.1"; TCP1_PORT="1"; fi
-if [ "$INV2_TRANSPORT" != "tcp" ]; then TCP2_HOST="127.0.0.1"; TCP2_PORT="1"; fi
-if [ "$INV3_TRANSPORT" != "tcp" ]; then TCP3_HOST="127.0.0.1"; TCP3_PORT="1"; fi
-
-# IDs fournis
-update_tcp_host_port "affc083c1b7614e8" "$TCP1_HOST" "$TCP1_PORT" "OUT1"
-update_tcp_host_port "860cc648606abc47" "$TCP1_HOST" "$TCP1_PORT" "IN1"
-
-update_tcp_host_port "faacf46b9ccb1349" "$TCP2_HOST" "$TCP2_PORT" "OUT2"
-update_tcp_host_port "676593474485375b" "$TCP2_HOST" "$TCP2_PORT" "IN2"
-
-update_tcp_host_port "edb28c0311499138" "$TCP3_HOST" "$TCP3_PORT" "OUT3"
-update_tcp_host_port "6178939eaeb81b59" "$TCP3_HOST" "$TCP3_PORT" "IN3"
 
 # ---------- Per-inverter ESP mode: disable legacy I/O nodes only ----------
 # Never even open an old local serial/TCP endpoint when the ESP owns UART.
@@ -281,9 +269,9 @@ update_tcp_host_port "6178939eaeb81b59" "$TCP3_HOST" "$TCP3_PORT" "IN3"
 set_io_mode() {
   local n="$1" mode="$2" ids
   case "$n" in
-    1) ids='["ee75b8b24f06bd32","8be1a4bda6cf1027","affc083c1b7614e8","860cc648606abc47"]' ;;
-    2) ids='["4f05f81d6e3662a6","9efe66c0142e7183","faacf46b9ccb1349","676593474485375b"]' ;;
-    3) ids='["8d6598c166d176e0","9a5d93478a7d5cb2","edb28c0311499138","6178939eaeb81b59"]' ;;
+1) ids='["a3fcb4ec8a648918","fb96a298c987d683","1e1a7ad9eb6b2a52"]' ;;
+2) ids='["6431323d5b272bc2","07215c45cd82b652","63bcf98463aab41a"]' ;;
+3) ids='["8e2f29ef96d4823e","c78f64d7a88c2a2e","b8fce564589ea5e6"]' ;;
     *) return 1 ;;
   esac
   jq --arg mode "$mode" --argjson ids "$ids" '
