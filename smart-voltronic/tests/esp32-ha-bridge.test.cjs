@@ -41,7 +41,7 @@ function harness(mode="serial",changes={}){
      msg,store(flowData),store(globalData),store(ctx.get(id)),node,env,Buffer
    );
  };
- return {invoke,flowData,alerts};
+ return {invoke,flowData,globalData,alerts};
 }
 function encodedReply(body){
  const h=harness();
@@ -162,6 +162,43 @@ test("INV1 legacy SET ACK transitions to fresh verification phase; not stale QMO
  h.invoke(verify,{inverterNum:1,_cmd:"QPIRI",payload:{params:{qpiri:{battery_bulk_voltage:55.2}}}});
  assert.equal(h.flowData.get("inv1_pending_set"),null);
 });
+
+test("Parse Options recognizes ESP32 without serial port; legacy serial/gateway remain active",()=>{
+ const h=harness("esp32");
+ const opts={
+   inv1_link:"esp32",inv1_esp_host:"192.0.2.1",inv1_esp_port:18081,
+   inv1_esp_code:"TOPSECRET-NOT-PERSISTED",
+   inv2_link:"gateway",inv2_gateway_host:"192.0.2.2",inv2_gateway_port:8899,
+   inv3_link:"serial",inv3_serial_port:"/dev/ttyUSB99",
+   timezone_mode:"Europe/Paris",battery_system_voltage:"48V"
+ };
+ const out=h.invoke("3046d90f7d94f250",{payload:JSON.stringify(opts)});
+ assert.deepEqual(out.payload.invertersList,[1,2,3]);
+ assert.equal(out.payload.invCfg[1].transport,"esp32");
+ assert.equal(out.payload.invCfg[2].transport,"tcp");
+ assert.equal(out.payload.invCfg[3].transport,"serial");
+ assert.equal(h.globalData.get("config.invertersCount"),3);
+ assert.equal(JSON.stringify([...h.globalData.values()]).includes("TOPSECRET-NOT-PERSISTED"),false);
+});
+test("HA discovery treats ESP32 on inverter 1 as active without inventing serial port",()=>{
+ const h=harness("esp32");
+ h.invoke("3046d90f7d94f250",{payload:JSON.stringify({
+   inv1_link:"esp32",inv1_esp_host:"192.0.2.1",inv1_esp_port:18081,
+   inv2_link:"serial",inv2_serial_port:"/dev/serial/by-id/CHANGE-ME",
+   inv3_link:"serial",inv3_serial_port:""
+ })});
+ assert.deepEqual(h.globalData.get("config.invertersList"),[1]);
+ const out=h.invoke("41bbaf23a07e6c9a",{});
+ assert.ok(Array.isArray(out[0]));
+ assert.ok(out[0].some(m=>typeof m.topic==="string"&&m.topic.startsWith("homeassistant/")));
+});
+for(let i=1;i<=3;i++){
+ test("INV"+i+" ESP mode ignores legacy UART RX even if bytes appear",()=>{
+   const h=harness("esp32");
+   h.flowData.set("inv"+i+"_inflight",{cmd:"QMOD",ts:Date.now()});
+   assert.equal(h.invoke(ids.parser[i],{inverterNum:i,payload:crcPacket("(B")}),null);
+ });
+}
 test("Legacy selectors keep original discovery, topic and entity identifiers",()=>{
  const discovery=nodes.filter(n=>/HA Discovery/.test(n.name||""));
  assert.ok(discovery.length>=3);
