@@ -28,6 +28,10 @@ options:
   inv1_serial_port: "/dev/serial/by-id/CHANGE-ME-1"
   inv1_gateway_host: ""
   inv1_gateway_port: 8899
+  inv1_esp_host: ""
+  inv1_esp_port: 18081
+  inv1_esp_code: ""
+  inv1_esp_write_enabled: false
 
   # ============================================================
   # ⚡ ONDULEUR 2
@@ -36,6 +40,10 @@ options:
   inv2_serial_port: "/dev/serial/by-id/CHANGE-ME-2"
   inv2_gateway_host: ""
   inv2_gateway_port: 8899
+  inv2_esp_host: ""
+  inv2_esp_port: 18081
+  inv2_esp_code: ""
+  inv2_esp_write_enabled: false
 
   # ============================================================
   # ⚡ ONDULEUR 3
@@ -44,6 +52,10 @@ options:
   inv3_serial_port: "/dev/serial/by-id/CHANGE-ME-3"
   inv3_gateway_host: ""
   inv3_gateway_port: 8899
+  inv3_esp_host: ""
+  inv3_esp_port: 18081
+  inv3_esp_code: ""
+  inv3_esp_write_enabled: false
 
   # ============================================================
   # 🔋 BATTERY SYSTEM VOLTAGE
@@ -74,22 +86,34 @@ options:
 
 schema:
   # Onduleur 1
-  inv1_link: list(serial|gateway)
+  inv1_link: list(serial|gateway|esp32)
   inv1_serial_port: str?
   inv1_gateway_host: str?
   inv1_gateway_port: int?
+  inv1_esp_host: str?
+  inv1_esp_port: int?
+  inv1_esp_code: password?
+  inv1_esp_write_enabled: bool
 
   # Onduleur 2
-  inv2_link: list(serial|gateway)
+  inv2_link: list(serial|gateway|esp32)
   inv2_serial_port: str?
   inv2_gateway_host: str?
   inv2_gateway_port: int?
+  inv2_esp_host: str?
+  inv2_esp_port: int?
+  inv2_esp_code: password?
+  inv2_esp_write_enabled: bool
 
   # Onduleur 3
-  inv3_link: list(serial|gateway)
+  inv3_link: list(serial|gateway|esp32)
   inv3_serial_port: str?
   inv3_gateway_host: str?
   inv3_gateway_port: int?
+  inv3_esp_host: str?
+  inv3_esp_port: int?
+  inv3_esp_code: password?
+  inv3_esp_write_enabled: bool
 
   # Séparateur Battery
   battery_section: str?
