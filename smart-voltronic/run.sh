@@ -290,9 +290,13 @@ set_io_mode() {
     map(
       if (.id as $nodeId | ($ids | index($nodeId)) != null) then
         if $mode == "esp32" then
-          .d = true | ._esp_bridge_disabled = true
+          (if ._esp_bridge_disabled != true then
+             ._esp_bridge_was_disabled = (.d == true)
+           else . end)
+          | .d = true | ._esp_bridge_disabled = true
         elif ._esp_bridge_disabled == true then
-          del(.d, ._esp_bridge_disabled)
+          (if ._esp_bridge_was_disabled == true then .d = true else del(.d) end)
+          | del(._esp_bridge_disabled, ._esp_bridge_was_disabled)
         else . end
       else . end
     )
