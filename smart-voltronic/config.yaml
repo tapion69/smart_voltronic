@@ -1,5 +1,5 @@
 name: "Smart Voltronic DEV"
-version: "1.1.3"
+version: "1.1.4"
 slug: "smart_voltronic_dev"
 description: "⚠️ ESP32↔HA BRIDGE TEST – DO NOT USE ON PRODUCTION"
 
@@ -32,6 +32,10 @@ options:
   inv1_esp_port: 18081
   inv1_esp_code: ""
   inv1_esp_write_enabled: false
+  inv1_display_mode: "modern"
+  inv1_output_priority_2choices: false
+  inv1_battery_capacity_ah: 0
+  inv1_battery_total_capacity_kwh: 0
 
   # ============================================================
   # ⚡ ONDULEUR 2
@@ -44,6 +48,10 @@ options:
   inv2_esp_port: 18081
   inv2_esp_code: ""
   inv2_esp_write_enabled: false
+  inv2_display_mode: "modern"
+  inv2_output_priority_2choices: false
+  inv2_battery_capacity_ah: 0
+  inv2_battery_total_capacity_kwh: 0
 
   # ============================================================
   # ⚡ ONDULEUR 3
@@ -56,6 +64,10 @@ options:
   inv3_esp_port: 18081
   inv3_esp_code: ""
   inv3_esp_write_enabled: false
+  inv3_display_mode: "modern"
+  inv3_output_priority_2choices: false
+  inv3_battery_capacity_ah: 0
+  inv3_battery_total_capacity_kwh: 0
 
   # ============================================================
   # 🔋 BATTERY SYSTEM VOLTAGE
@@ -76,6 +88,12 @@ options:
   # 🔔 OPTIONS
   # ============================================================
   send_bip: true
+  polling_fast: 5
+  dashboard_language: "fr"
+  dashboard_output: "both"
+  dashboard_custom_cards_installed: false
+  dashboard_diag_communication: false
+  premium_key: ""
 
   # ============================================================
   # 🌍 TIMEZONE
@@ -94,6 +112,10 @@ schema:
   inv1_esp_port: int?
   inv1_esp_code: password?
   inv1_esp_write_enabled: bool
+  inv1_display_mode: list(modern|legacy_usb_sub_sbu)
+  inv1_output_priority_2choices: bool
+  inv1_battery_capacity_ah: float?
+  inv1_battery_total_capacity_kwh: float?
 
   # Onduleur 2
   inv2_link: list(serial|gateway|esp32)
@@ -104,6 +126,10 @@ schema:
   inv2_esp_port: int?
   inv2_esp_code: password?
   inv2_esp_write_enabled: bool
+  inv2_display_mode: list(modern|legacy_usb_sub_sbu)
+  inv2_output_priority_2choices: bool
+  inv2_battery_capacity_ah: float?
+  inv2_battery_total_capacity_kwh: float?
 
   # Onduleur 3
   inv3_link: list(serial|gateway|esp32)
@@ -114,6 +140,10 @@ schema:
   inv3_esp_port: int?
   inv3_esp_code: password?
   inv3_esp_write_enabled: bool
+  inv3_display_mode: list(modern|legacy_usb_sub_sbu)
+  inv3_output_priority_2choices: bool
+  inv3_battery_capacity_ah: float?
+  inv3_battery_total_capacity_kwh: float?
 
   # Séparateur Battery
   battery_section: str?
@@ -132,6 +162,12 @@ schema:
 
   # Options
   send_bip: bool
+  polling_fast: int?
+  dashboard_language: list(fr|en)
+  dashboard_output: list(lovelace|html|both|disabled)
+  dashboard_custom_cards_installed: bool
+  dashboard_diag_communication: bool
+  premium_key: password?
 
   # Séparateur Timezone
   timezone_section: str?
