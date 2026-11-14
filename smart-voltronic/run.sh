@@ -156,6 +156,7 @@ sanitize_transport() {
   case "$v" in
     serial)       echo "serial" ;;
     gateway|tcp)  echo "tcp" ;;
+    esp32)        echo "esp32" ;;
     *)            echo "serial" ;;
   esac
 }
@@ -194,6 +195,39 @@ if [ "$INV3_TRANSPORT" = "tcp" ] && [ -z "${INV3_HOST}" ]; then
   exit 1
 fi
 
+
+# ---------- ESP32-S3 independent cached HTTP bridge ----------
+# In ESP mode: ESP owns UART; Node-RED reads its HTTP cache only.
+# The read code is never printed; writes require an explicit opt-in per inverter.
+for n in 1 2 3; do
+  host="$(jq -r --arg k "inv${n}_esp_host" '.[$k] // ""' "$OPTS")"
+  port="$(jq -r --arg k "inv${n}_esp_port" '.[$k] // 18081 | tonumber' "$OPTS" 2>/dev/null || echo 18081)"
+  code="$(jq -r --arg k "inv${n}_esp_code" '.[$k] // ""' "$OPTS")"
+  write_enabled="$(jq -r --arg k "inv${n}_esp_write_enabled" '.[$k] // false | tostring' "$OPTS")"
+  transport_var="INV${n}_TRANSPORT"
+  transport="${!transport_var}"
+  if [ "$transport" = "esp32" ]; then
+    if [[ ! "$host" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+      loge "Inv${n}: ESP host invalid or empty (LAN hostname / IPv4 required)"
+      exit 1
+    fi
+    if [[ ! "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+      loge "Inv${n}: ESP port out of range"
+      exit 1
+    fi
+    if [ "${#code}" -lt 8 ] || [ "${#code}" -gt 32 ]; then
+      loge "Inv${n}: ESP setup code length must be 8..32"
+      exit 1
+    fi
+    logi "Inv${n}: ESP32 cache transport enabled (host and access code redacted)"
+  fi
+  printf -v "INV${n}_ESP_HOST" '%s' "$host"
+  printf -v "INV${n}_ESP_PORT" '%s' "$port"
+  printf -v "INV${n}_ESP_CODE" '%s' "$code"
+  printf -v "INV${n}_ESP_WRITE_ENABLED" '%s' "$write_enabled"
+  export "INV${n}_ESP_HOST" "INV${n}_ESP_PORT" "INV${n}_ESP_CODE" "INV${n}_ESP_WRITE_ENABLED"
+done
+
 # Export pour Node-RED (env.get())
 export INV1_TRANSPORT INV2_TRANSPORT INV3_TRANSPORT
 export INV1_HOST INV2_HOST INV3_HOST
@@ -226,9 +260,9 @@ TCP1_HOST="$INV1_HOST"; TCP1_PORT="$INV1_PORT"
 TCP2_HOST="$INV2_HOST"; TCP2_PORT="$INV2_PORT"
 TCP3_HOST="$INV3_HOST"; TCP3_PORT="$INV3_PORT"
 
-if [ "$INV1_TRANSPORT" = "serial" ]; then TCP1_HOST="127.0.0.1"; TCP1_PORT="1"; fi
-if [ "$INV2_TRANSPORT" = "serial" ]; then TCP2_HOST="127.0.0.1"; TCP2_PORT="1"; fi
-if [ "$INV3_TRANSPORT" = "serial" ]; then TCP3_HOST="127.0.0.1"; TCP3_PORT="1"; fi
+if [ "$INV1_TRANSPORT" != "tcp" ]; then TCP1_HOST="127.0.0.1"; TCP1_PORT="1"; fi
+if [ "$INV2_TRANSPORT" != "tcp" ]; then TCP2_HOST="127.0.0.1"; TCP2_PORT="1"; fi
+if [ "$INV3_TRANSPORT" != "tcp" ]; then TCP3_HOST="127.0.0.1"; TCP3_PORT="1"; fi
 
 # IDs fournis
 update_tcp_host_port "affc083c1b7614e8" "$TCP1_HOST" "$TCP1_PORT" "OUT1"
