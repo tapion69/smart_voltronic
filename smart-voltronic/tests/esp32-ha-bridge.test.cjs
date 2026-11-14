@@ -62,7 +62,7 @@ test("Graph: IDs unique, 3 bridge adapters, unchanged MQTT publisher IDs",()=>{
    assert.ok(byId(ids.get(i)).func.includes("GET"));
    assert.ok(byId(ids.adapter(i)).func.includes("voltronic/"));
    assert.equal(byId(ids.pub[i]).type,"function");
-   assert.ok(byId(ids.enq[i]).func.includes("ESP"));
+   assert.ok(byId(ids.enq[i]).func.includes("esp32"));
  }
 });
 for(let i=1;i<=3;i++){
