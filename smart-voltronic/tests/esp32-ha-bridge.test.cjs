@@ -70,12 +70,12 @@ test('complete source: 322 untouched original IDs and 30 isolated bridge nodes',
 });
 test('unchanged 3 MQTT publishers, HA discovery unique_id source, Doctor and Premium screens',()=>{
  for(const i of [1,2,3])assert.equal(hash(required(inv[i].pub).func),'2812f1fd53b1160c09a8fa5da07b47fd6d3e423ac65e40eb7216c4a48f1c8622');
- const hashes={4106254e7828ed3b:'ab7d33caf573b5c8493080ccd14ca412dbb1ed20c1331e2ceeef87d15819f00d',
- 384929d824e573d3:'eec6c88f9df2bab71a099ee6aff1cabbdab259fbf4f32a821bc6c69a2bdbf809',
- 9d441aa9cbe276c5:'78e7fced0a35012b8d9c4cf1a9c531508c135e8531231037865933793ffb6c01',
- 2d7f7336b88783dc:'b50d1a2a83550cbc01d81ee6729465e23ff59bb8f05bb2ed0a56295b9f08e6fe',
- f0b822afe2554cec:'0ee72d0eeebe95e37eef880222b0b7502fc76dd034003e7e80af2919d456e613',
- 188eabe7f52ab4d0:'2d863a5b19908138cd2a54bcedafb7a4a2f6e3746d9ff13071f155348cee6dc6'};
+ const hashes={'4106254e7828ed3b':'ab7d33caf573b5c8493080ccd14ca412dbb1ed20c1331e2ceeef87d15819f00d',
+ '384929d824e573d3':'eec6c88f9df2bab71a099ee6aff1cabbdab259fbf4f32a821bc6c69a2bdbf809',
+ '9d441aa9cbe276c5':'78e7fced0a35012b8d9c4cf1a9c531508c135e8531231037865933793ffb6c01',
+ '2d7f7336b88783dc':'b50d1a2a83550cbc01d81ee6729465e23ff59bb8f05bb2ed0a56295b9f08e6fe',
+ 'f0b822afe2554cec':'0ee72d0eeebe95e37eef880222b0b7502fc76dd034003e7e80af2919d456e613',
+ '188eabe7f52ab4d0':'2d863a5b19908138cd2a54bcedafb7a4a2f6e3746d9ff13071f155348cee6dc6'};
  for(const [id,sha] of Object.entries(hashes))assert.equal(hash(required(id).func),sha,id);
 });
 test('all 132 original/new function bodies compile in real Node.js',()=>{
