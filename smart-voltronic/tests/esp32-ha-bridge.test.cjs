@@ -150,6 +150,20 @@ for(let i=1;i<=3;i++){
    assert.equal(h.flowData.get("esp"+i+"_last_edit").success,false);
  });
 }
+for(let i=1;i<=3;i++){
+ test("INV"+i+" clears optional PV2/grid measurements when firmware omits them",()=>{
+   const h=harness("esp32"),id=ids.adapter(i);
+   const mk=values=>({statusCode:200,_esp_kind:"telemetry",payload:{available:true,age_ms:50,values}});
+   const initial=h.invoke(id,mk({battery_voltage_v:52,output_w:100,pv1_current_a:0,pv1_voltage_v:0,
+     pv2_power_w:245,pv2_current_a:0.7,pv2_voltage_v:355,grid_power_native_w:500}))[0].payload;
+   assert.equal(initial.pv2_power,245);
+   assert.equal(initial.grid_power,500);
+   const after=h.invoke(id,mk({battery_voltage_v:52,output_w:100,pv1_current_a:0,pv1_voltage_v:0}))[0].payload;
+   assert.equal(after.pv2_power,null);
+   assert.equal(after.grid_power,null);
+   assert.equal(after.pv_total_power,0);
+ });
+}
 test("INV1 legacy SET ACK transitions to fresh verification phase; not stale QMOD",()=>{
  const h=harness("serial");
  h.flowData.set("inv1_pending_set",{param:"battery_bulk_voltage",value:55.2,phase:"sending",tryIndex:0,candidates:[{key:"PCVV",cmd:"PCVV55.2"}]});
