@@ -52,7 +52,7 @@ function crcPacket(body){
  let crc=0;
  for(const b of Buffer.from(body,"ascii")){
    crc^=b<<8;
-   for(let k=0;k<8;k++)crc=(crc&0x8000)?((crc<<1)^0x1021)&0xffff:(crc<<1)&0xffff);
+   for(let k=0;k<8;k++)crc=(crc&0x8000)?(((crc<<1)^0x1021)&0xffff):((crc<<1)&0xffff);
  }
  return Buffer.concat([Buffer.from(body,"ascii"),Buffer.from([crc>>8,crc&255,13])]);
 }
