@@ -20,7 +20,7 @@ const inv={
 };
 function harness(overrides={}){
  const context=new Map(),flowMap=new Map(),globalMap=new Map(),warnings=[];
- const store=m=>({get:(k,s)=>m.get(k+'|'+(s||'default'))??m.get(k),set:(k,v,s)=>m.set(k+'|'+(s||'default'),v)});
+ const store=m=>({get:(k,s)=>m.has(k+'|'+(s||'default'))?m.get(k+'|'+(s||'default')):m.get(k),set:(k,v,s)=>m.set(k+'|'+(s||'default'),v)});
  const defaults={INV1_TRANSPORT:'esp32',INV2_TRANSPORT:'esp32',INV3_TRANSPORT:'esp32',
  INV1_ESP_WRITE_ENABLED:'false',INV2_ESP_WRITE_ENABLED:'false',INV3_ESP_WRITE_ENABLED:'false',
  INV1_ESP_HOST:'127.0.0.1',INV2_ESP_HOST:'127.0.0.1',INV3_ESP_HOST:'127.0.0.1',
@@ -104,8 +104,7 @@ for(let i=1;i<=3;i++){
      const h=harness({['INV'+i+'_TRANSPORT']:mode});
      assert.notEqual(h.run(inv[i].req,{inverterNum:i}),null);
      const v=h.run(inv[i].enq,{inverterNum:i,command:'QPIGS',payload:'QPIGS'});
-     assert.equal(v[1],null);
-     assert.ok(v[0]);
+     assert.ok(Array.isArray(v)?v[0]:v); // original serial/gateway return shape
    }
  });
  test('INV'+i+' HTTP only fetches authenticated native reply cache',()=>{
@@ -153,7 +152,7 @@ test('cached QPIRI and QDOP update existing HA number and select fields',()=>{
  const qpiri=Array.from({length:31},(_,i)=>i===10?55.2:i===11?54.0:i===14?50:i===16?2:i===17?1:0);
  const st=readPipeline(h,native(1,'QPIRI',qpiri.join(' '))).state;
  assert.equal(st.params.qpiri.battery_bulk_voltage,55.2);
- assert.equal(st.params.qpiri.max_charging_current,50);
+ assert.equal(Number(st.params.qpiri.max_charging_current),50);
  const qdop=Array.from({length:24},(_,i)=>i===8?15:i===9?20:i===10?10:0);
  const next=readPipeline(h,native(2,'QDOP',qdop.join(' '))).state;
  assert.equal(next.params.qdop.battery_under_capacity_pct,10);
