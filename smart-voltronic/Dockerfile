@@ -1,5 +1,6 @@
-ARG BUILD_FROM=ghcr.io/hassio-addons/base:21.0.9
-FROM ${BUILD_FROM}
+# Pin experimental base: Home Assistant Supervisor may override BUILD_FROM with stale 15.x.
+# Multi-architecture image selection is automatic for amd64/aarch64/arm.
+FROM ghcr.io/hassio-addons/base:21.0.9
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
