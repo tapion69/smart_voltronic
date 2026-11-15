@@ -4,3 +4,5 @@ for(const id of ['4a4da3d622dc762b','75c62f251cd7cb06','4e9392aefa24990d','381cb
 for(const n of a.filter(n=>n.type==='function'&&/learn_session_inv/.test(n.func||'')))console.log('LEARN_SESSION',n.id,n.name,n.wires);
 
 for(const id of ['7b3c22ccb3f35b22','4e9392aefa24990d','3a59470b27677402','8093ac9b9299eb71','05be72a05279b7ec','feda378cd425f63c']){const n=m.get(id);console.log('NODETAIL',id,n.name,n.func.slice(-6400));}console.log('MQTT_BROKER',JSON.stringify(a.filter(x=>x.type==='mqtt out').slice(0,5).map(x=>({id:x.id,name:x.name,broker:x.broker,qos:x.qos,retain:x.retain,topic:x.topic}))))
+for(const id of ['7b3c22ccb3f35b22','4e9392aefa24990d','3a59470b27677402']){const n=m.get(id);console.log('COMPLETION_END',id,n.func.split('\n').slice(-85).join('\n'));}
+for(const id of ['8093ac9b9299eb71','05be72a05279b7ec']){const n=m.get(id);console.log('PREPROC',id,n.func.slice(0,2300))}
