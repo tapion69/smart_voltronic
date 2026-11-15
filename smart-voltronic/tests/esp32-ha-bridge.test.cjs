@@ -132,10 +132,10 @@ test("Full original learning: NAK selects second current format",()=>{
  h.state.set("inv1_normalized_state",{diag:{model:"TEST",serial:"BENCH",fw_main:"1"},params:{qpiri:{max_ac_charging_current:20}}});
  const pre=h.run("8093ac9b9299eb71",{inverterNum:1,_ha_param:"max_ac_charging_current",_ha_value:30,payload:30})[0];
  const decision=h.run("49a49791d8e00e12",pre);
- const first=h.run("b1a8cd69494be1e35",decision)[0];
+ const first=h.run("b1a8cd69494aac47",decision)[0];
  assert.equal(first.command,"MUCHGC0030");
  const failed=h.run("297f43a988be0f16",{inverterNum:1,command:first.command,payload:{nak:true,raw:"NAK"},_raw_response:"NAK"});
- const second=h.run("b1a8cd69494be1e35",failed[1])[0];
+ const second=h.run("b1a8cd69494aac47",failed[1])[0];
  assert.equal(second.command,"MUCHGC030");
 });
 test("ESP learning write disabled by default; enabled yields semantic verified candidate only",()=>{
