@@ -1,9 +1,10 @@
-ARG BUILD_FROM=ghcr.io/hassio-addons/base:15.0.7
+ARG BUILD_FROM=ghcr.io/hassio-addons/base:21.0.9
 FROM ${BUILD_FROM}
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Node.js LTS (22) + outils utiles
+# Updated Alpine base prevents the outdated musl/musl-dev revision mismatch.
+# Install Node.js and supporting shell utilities
 RUN apk add --no-cache bash jq nodejs-lts npm \
   || apk add --no-cache bash jq "nodejs~22" "npm~10"
 
