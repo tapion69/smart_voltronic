@@ -130,6 +130,18 @@ if "| Lectures HTTP réussies |" not in body[body.index(section):]:
     ix = body.index(section)
     pos = body.index(at, ix)
     body = body[:pos] + extra + body[pos:]
+# The old origin/queue diagnostic counts only Node-RED UART/TCP polling.
+# Hide that whole legacy block for ESP mode; the ESP-specific section above
+# provides independently measured cache and verified write metrics.
+if "// ESP_DOCTOR_HIDE_LEGACY_ORIGINS" not in body:
+    legacy = "### 📊 " + "$" + "{t.command_origins}"
+    esp = "{% if a(e, 'transport') == 'esp32' %}"
+    assert body.count(legacy) == 1 and body.count(esp) == 1
+    p = body.index(legacy)
+    q = body.index(esp, p)
+    body = body[:p] + "{% if a(e, 'transport') != 'esp32' %}\n" + \
+           "// ESP_DOCTOR_HIDE_LEGACY_ORIGINS\n" + body[p:q] + \
+           "{% endif %}\n" + body[q:]
 doctor["func"] = body
 
 assert len(nodes) == 355 and len(m) == 355
