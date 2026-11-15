@@ -1,0 +1,46 @@
+name: ESP32 main full-flow compatibility
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-voltronic/esp32_patch_flows.cjs'
+      - 'smart-voltronic/esp32_bridge_nodes.json'
+      - 'smart-voltronic/esp32_learning_nodes.json'
+      - 'smart-voltronic/run.sh'
+      - 'smart-voltronic/config.yaml'
+      - '.github/workflows/test-main-esp32.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test-full-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check original 322-node main flow and cached ESP2 owner
+        run: |
+          mkdir -p /tmp/esp32-main-test
+          cp smart-voltronic/flows.json /tmp/esp32-main-test/flows.json
+          INV1_TRANSPORT=tcp INV2_TRANSPORT=esp32 INV3_TRANSPORT=disabled node smart-voltronic/esp32_patch_flows.cjs /tmp/esp32-main-test/flows.json smart-voltronic
+          node -e '
+            const fs=require("fs"),assert=require("assert");
+            const a=JSON.parse(fs.readFileSync("/tmp/esp32-main-test/flows.json"));const m=new Map(a.map(n=>[n.id,n]));
+            assert.equal(a.length,355);
+            assert.deepEqual(m.get("bbd3067079b8f836").wires[0],["espfull2_learn"]);
+            assert.deepEqual(m.get("b1a8cd69494aac47").wires[0],["e56dd41194be1e35"]);
+            assert.equal(m.get("6431323d5b272bc2").d,true);
+            assert.notEqual(m.get("a3fcb4ec8a648918").d,true);
+            assert.equal(m.get("277e4fdf74343135").name,"PREMIUM STORAGE INIT");
+            const data=a.filter(n=>n.type==="mqtt out"&&n.name?.includes("HA"));console.log("Original premium and MQTT intact",data.length);
+          '
+      - name: Check idempotence, restore serial and gateway on independent slots
+        run: |
+          INV1_TRANSPORT=serial INV2_TRANSPORT=tcp INV3_TRANSPORT=serial node smart-voltronic/esp32_patch_flows.cjs /tmp/esp32-main-test/flows.json smart-voltronic
+          node -e '
+            const a=require("/tmp/esp32-main-test/flows.json");const m=new Map(a.map(n=>[n.id,n]));const assert=require("assert");
+            assert.equal(a.length,355);
+            assert.deepEqual(m.get("bbd3067079b8f836").wires[0],["e4b3e0c1b7d78e69"]);
+            assert.equal(m.get("6431323d5b272bc2").d,undefined);
+          '
+      - name: Validate startup script syntax
+        run: bash -n smart-voltronic/run.sh
