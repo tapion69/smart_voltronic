@@ -9,3 +9,10 @@ for(const id of ['3ea573730416012d','7e96e2b785b1d159','2978c86114a84875','2d7f7
 for(const id of ['2d7f7336b88783dc','3ea573730416012d']){
  const n=byId.get(id);console.log('DOCTOR_SECTION',id,n.func.slice(0,12000));
 }
+
+for(const id of ['3ea573730416012d','2978c86114a84875','2d7f7336b88783dc']){
+ const n=byId.get(id),a=n.func.split('\n');
+ for(const [lo,hi] of (id==='3ea573730416012d'?[[1,55],[295,332],[1220,1475]]:id==='2978c86114a84875'?[[1,110],[1410,1510]]:[[1,95],[1400,1585],[1625,1730]])){
+ console.log('SECTION',id,lo,hi,a.slice(lo-1,hi).map((x,j)=>(lo+j)+':'+x).join(' | ').slice(0,21500));
+ }
+}
