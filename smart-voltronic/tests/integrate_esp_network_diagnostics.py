@@ -224,9 +224,9 @@ for(const key of [
 "esp_http_send_failures_firmware"
 ]) payload[key]=(health[key]===undefined?null:health[key]);
 '''.replace("__I__",tag)
-        anchor='if(health.transport==="esp32"){'
-        assert anchor in code
-        code=code.replace(anchor,anchor+'\n'+extra,1)
+        anchor='msg.payload = JSON.stringify(payload);'
+        assert anchor in code, "Doctor MQTT serialization moved for INV"+tag
+        code=code.replace(anchor, 'if(String(health.transport||"")==="esp32"){\n'+extra+'\n}\n'+anchor,1)
         pub["func"]=code
 
 doctor=by["2d7f7336b88783dc"]
