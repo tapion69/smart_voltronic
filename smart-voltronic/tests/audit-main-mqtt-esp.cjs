@@ -7,3 +7,12 @@ console.log('MAIN state normalize',JSON.stringify(a.filter(n=>/normalize state|m
 console.log('MQTT UNIQUE IDS',JSON.stringify(a.filter(n=>n.type==='function'&&/unique_id|uniqueId|uniqueID/.test(n.func||'')).map(n=>({id:n.id,name:n.name,unique:(n.func.match(/unique_id[^\n]{0,110}/g)||[]).slice(0,5)}))).slice(0,12000));
 for(const i of [1,2,3]){const id='espfull'+i+'_replay';const n=bridge.find(x=>x.id===id);console.log('REPLAY',i,JSON.stringify(show(n)));const parser=map.get(n.wires[0][0]);console.log('PARSER TARGET',i,JSON.stringify(show(parser)));console.log('PARSER_HEAD',i,parser.func?.slice(0,3200));}
 for(const id of ['0afb3d6df9f843dd','4122a58795a420a8','277e4fdf74343135']){const n=map.get(id);console.log('CONFIG NODE',JSON.stringify(show(n)));}
+
+for(const id of ['06f687dbe6782ce8','e82d4d3650a26a34','057108fc794236af']){
+ const n=map.get(id),l=n.func.split('\n');let out=[];
+ for(let i=0;i<l.length;i++)if(/inflight|command|msg\.payload|return null|response|parsed|crc|CRC|rxbuf/.test(l[i]))out.push((i+1)+': '+l[i]);
+ console.log('PARSER_LOGIC',id,out.join(' | ').slice(0,13000));
+}
+for(const id of ['6610714dd2585f9b','cc84c35690619c8c']){
+ const n=map.get(id),l=n.func.split('\n');console.log('NORMALIZE_LOGIC',id,l.slice(0,95).join('\n').slice(0,8000));
+}
