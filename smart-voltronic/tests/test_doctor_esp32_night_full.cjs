@@ -23,7 +23,7 @@ for(let i=1;i<=3;i++){
  assert(monitor.func.includes("nightFreeze"));
  assert(monitor.func.includes("expectedSleepLoss"));
  assert(n.get(["d385574be7304d91","5a8f3478dfb6b6d8","609774e30abc3c0d"][i-1]).func.includes("ESP_DOCTOR_NO_LEGACY_PENDING_INV"+i));
- new Function(monitor.func);
+ try{new Function(monitor.func)}catch(e){console.error("DEBUG_MONITOR_LINES",monitor.func.split("\n").slice(0,290).map((s,i)=>(i+1)+":"+s).join("\n"));throw e;}
 }
 const doctorJs=n.get("2d7f7336b88783dc").func;
 new Function(doctorJs);
