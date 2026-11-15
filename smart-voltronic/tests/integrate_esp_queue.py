@@ -116,14 +116,16 @@ function messages(){
            {topic:discoveryBase+"/button/smart_voltronic_inv"+INV+"_esp_queue_purge/config",payload:"",retain:true});
   return out;
  }
- const device={identifiers:["smart_voltronic_esp_inv"+INV],name:"Voltronic ESP"+INV,
-  manufacturer:"Smart Voltronic",model:"ESP32-S3 RS232 bridge"};
+ const device={identifiers:["voltronic_inv_"+INV],name:"Voltronic Inverter "+INV,
+  manufacturer:"Voltronic",model:"Axpert/Voltronic"};
  const sensor={name:"Onduleur "+INV+" file attente ESP32",
   unique_id:"smart_voltronic_inv"+INV+"_esp_queue_state_v1",
+  default_entity_id:"sensor.voltronic_inv"+INV+"_esp_queue_state",
   state_topic:top+"/state",json_attributes_topic:top+"/attributes",
   icon:"mdi:playlist-clock",device};
  const button={name:"Onduleur "+INV+" purger file ESP32",
   unique_id:"smart_voltronic_inv"+INV+"_esp_queue_purge_v1",
+  default_entity_id:"button.voltronic_inv"+INV+"_esp_queue_purge",
   command_topic:top+"/purge/set",payload_press:"PURGE",
   icon:"mdi:playlist-remove",device};
  out.push({topic:discoveryBase+"/sensor/smart_voltronic_inv"+INV+"_esp_queue/config",
