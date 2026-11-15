@@ -4,6 +4,8 @@ on:
     branches: [main]
     paths:
       - 'smart-voltronic/esp32_patch_flows.cjs'
+      - 'smart-voltronic/flows.json'
+      - 'smart-voltronic/tests/test-canonical-esp32-doctor.cjs'
       - 'smart-voltronic/esp32_bridge_nodes.json'
       - 'smart-voltronic/esp32_learning_nodes.json'
       - 'smart-voltronic/run.sh'
@@ -17,11 +19,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify ESP2 Doctor real cache response, offline state and unchanged unique IDs
+        run: node smart-voltronic/tests/test-canonical-esp32-doctor.cjs
       - name: Validate live-format ESP QPIGS through native parsers and unchanged HA unique IDs
         run: node smart-voltronic/tests/test-main-esp32-parser.cjs
       - name: Execute parse options for both ESPs and legacy serial/gateway
         run: node smart-voltronic/tests/test-esp32-parse-options.cjs
-      - name: Check original 322-node main flow and cached ESP2 owner
+      - name: Check canonical 355-node flow and cached ESP2 owner
         run: |
           mkdir -p /tmp/esp32-main-test
           cp smart-voltronic/flows.json /tmp/esp32-main-test/flows.json
