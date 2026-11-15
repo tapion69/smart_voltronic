@@ -3,7 +3,7 @@ const assert=require("assert"),fs=require("fs"),cp=require("child_process");
 const file="/tmp/esp32-doctor-complete-test.json";
 fs.copyFileSync("smart-voltronic/flows.json",file);
 const original=JSON.parse(fs.readFileSync(file));
-assert.equal(original.length,373);
+assert.equal(original.length,385);
 const orig=new Map(original.map(n=>[n.id,n]));
 cp.execFileSync("python3",["smart-voltronic/tests/repair_doctor_esp32_full.py"] ,{
  stdio:"pipe",
@@ -12,7 +12,7 @@ cp.execFileSync("python3",["smart-voltronic/tests/repair_doctor_esp32_full.py"] 
 });
 const data=JSON.parse(fs.readFileSync("smart-voltronic/flows.json"));
 const n=new Map(data.map(x=>[x.id,x]));
-assert.equal(n.size,373);
+assert.equal(n.size,385);
 for(const id of ["4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5"]){
  assert.equal(n.get(id).func,orig.get(id).func,"HA discovery ID contract");
  assert.deepEqual(n.get(id).wires,orig.get(id).wires,"MQTT discovery topology contract");
