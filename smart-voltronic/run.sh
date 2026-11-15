@@ -176,6 +176,7 @@ sanitize_transport() {
     serial)       echo "serial" ;;
     gateway|tcp)  echo "tcp" ;;
     esp32)        echo "esp32" ;;
+    disabled)     echo "disabled" ;;
     *)            echo "serial" ;;
   esac
 }
@@ -296,7 +297,7 @@ set_io_mode() {
   jq --arg mode "$mode" --argjson ids "$ids" '
     map(
       if (.id as $nodeId | ($ids | index($nodeId)) != null) then
-        if $mode == "esp32" then
+        if ($mode == "esp32" or $mode == "disabled") then
           (if ._esp_bridge_disabled != true then
              ._esp_bridge_was_disabled = (.d == true)
            else . end)
