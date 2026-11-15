@@ -47,7 +47,7 @@ function harness(mode="esp32",overrides={}){
 }
 function synthetic(body){
  const bytes=Buffer.from("("+body,"ascii");
- let c=0;for(const b of bytes){c^=b<<8;for(let k=0;k<8;k++)c=(c&32768)?((c<<1)^0x1021)&65535:(c<<1)&65535);}
+ let c=0;for(const b of bytes){c^=b<<8;for(let k=0;k<8;k++)c=(c&32768)?(((c<<1)^0x1021)&65535):((c<<1)&65535);}
  return Buffer.concat([bytes,Buffer.from([c>>8,c&255,13])]);
 }
 const fields=[230,50,230,50,1200,1100,35,380,52.5,92,15,72,5,280,52.5,0,0,0,0,1400,0,0,0,0,0].join(" ");
