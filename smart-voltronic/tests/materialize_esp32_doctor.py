@@ -107,8 +107,8 @@ if section not in doctor["func"]:
 
 for inv in (1, 2, 3):
     replay = by_id["espfull" + str(inv) + "_replay"]
-    broken = 'global.set("inv"+inv+"_esp_health",h);\\n return markEspFailure();'
-    fixed = 'global.set("inv"+inv+"_esp_health",h);\\n return [null,offline];'
+    broken = 'global.set("inv"+inv+"_esp_health",h);\n return markEspFailure();'
+    fixed = 'global.set("inv"+inv+"_esp_health",h);\n return [null,offline];'
     if broken in replay["func"]:
         replay["func"] = replay["func"].replace(broken, fixed, 1)
     assert fixed in replay["func"], "ESP error path must not recurse"
