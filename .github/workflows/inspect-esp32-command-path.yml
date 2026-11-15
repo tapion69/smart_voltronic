@@ -1,0 +1,14 @@
+name: Inspect ESP32 HA command routing
+on:
+  push:
+    branches: ['dev/esp32-s3-full-live-test']
+    paths: ['smart-voltronic/tests/inspect-esp32-command-path.cjs','.github/workflows/inspect-esp32-command-path.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/inspect-esp32-command-path.cjs
