@@ -9,3 +9,9 @@ const spans=[];for(const i of indexes){if(spans.length&&i<=spans[spans.length-1]
 for(const [start,end] of spans)console.log('PART',id,start+1,end,l.slice(start,end).map((line,i)=>String(start+i+1).padStart(4)+' '+line).join('\n').slice(0,18000));
 }
 for(const x of n.filter(x=>x.type==='function'&&/orphan_response_count|night_sleep/.test(x.func||'')&&!ids.includes(x.id)))console.log('OTHER_FUNCTION',JSON.stringify({id:x.id,name:x.name,z:x.z,head:x.func?.slice(0,200)}));
+
+const selects=[
+ ['7e96e2b785b1d159',35,87],['7e96e2b785b1d159',690,1100],['7e96e2b785b1d159',1095,1280],
+ ['5a8f3478dfb6b6d8',1,260],['24bf6b0e4899bf4a',1,250],
+ ['d385574be7304d91',1,260],['2d7f7336b88783dc',1380,1450]
+];for(const [id,a,b] of selects){console.log('---BEGIN EXTRACT',id,a,b); const x=m.get(id);console.log(x.func.split('\n').slice(a-1,b).map((s,j)=>(a+j)+': '+s).join('\n'));console.log('---END EXTRACT',id,a,b)}
