@@ -7,6 +7,9 @@ nodes=json.loads(p.read_text())
 assert len(nodes)==355
 by={n["id"]:n for n in nodes}
 assert len(by)==355
+if all("ESP_DOCTOR_NIGHT_REPAIRED_INV"+str(i) in by[["3ea573730416012d","7e96e2b785b1d159","638cb89fdbee6fe3"][i-1]]["func"] for i in (1,2,3)):
+ print("PASS: canonical 355-node ESP Doctor already repaired; no changes")
+ raise SystemExit(0)
 discovery={x:(by[x]["func"],by[x]["wires"]) for x in ("4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5")}
 mons=["3ea573730416012d","7e96e2b785b1d159","638cb89fdbee6fe3"]
 receivers=["d385574be7304d91","5a8f3478dfb6b6d8","609774e30abc3c0d"]
