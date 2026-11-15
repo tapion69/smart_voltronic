@@ -1,0 +1,377 @@
+[
+  {
+    "id": "espfull1_tick",
+    "type": "inject",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 snapshot 2s",
+    "props": [
+      {
+        "p": "payload",
+        "v": "",
+        "vt": "date"
+      }
+    ],
+    "repeat": "2",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 2,
+    "topic": "",
+    "x": 120,
+    "y": 2950,
+    "wires": [
+      [
+        "espfull1_builder"
+      ]
+    ]
+  },
+  {
+    "id": "espfull1_builder",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 authenticated cache GET",
+    "func": "if(String(env.get(\"INV1_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nconst h=String(env.get(\"INV1_ESP_HOST\")||\"\");\nconst p=Number(env.get(\"INV1_ESP_PORT\")||18081);\nconst code=String(env.get(\"INV1_ESP_CODE\")||\"\");\nif(!/^[a-zA-Z0-9.-]+$/.test(h)||p<1||p>65535||code.length<8)return null;\nmsg.inverterNum=1;msg.method=\"GET\";\nmsg.url=\"http://\"+h+\":\"+p+\"/api/v1/bridge/snapshot\";\nmsg.headers={\"X-Setup-Code\":code,\"Accept\":\"application/json\"};\ndelete msg.payload;return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 2950,
+    "wires": [
+      [
+        "espfull1_http"
+      ]
+    ]
+  },
+  {
+    "id": "espfull1_http",
+    "type": "http request",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 cache HTTP",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 570,
+    "y": 2950,
+    "wires": [
+      [
+        "espfull1_replay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull1_catch",
+    "type": "catch",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 cache errors",
+    "scope": [
+      "espfull1_http"
+    ],
+    "uncaught": false,
+    "x": 570,
+    "y": 2990,
+    "wires": [
+      [
+        "espfull1_replay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull1_replay",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 native parser replay",
+    "func": "const inv=1;\nif(String(env.get(\"INV\"+inv+\"_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nconst offline={topic:\"voltronic/\"+inv+\"/availability\",payload:\"offline\",retain:true};\nlet d=msg.payload;\nif(typeof d===\"string\"){try{d=JSON.parse(d);}catch(e){d=null;}}\nif(msg.error||msg.statusCode!==200||!d||d.cache_only!==true||d.available!==true||!Array.isArray(d.replies))return [null,offline];\nconst uptime=Number(d.uptime_ms),max=Number(d.max_seq);\nif(!Number.isFinite(uptime)||!Number.isFinite(max))return [null,offline];\nlet seen=context.get(\"seen\")||{},prev=context.get(\"uptime\")||0;\nif(uptime<prev)seen={};\ncontext.set(\"uptime\",uptime);\nlet emitted=[];\nfunction crc16(bytes){let c=0;for(const b of bytes){c^=b<<8;for(let j=0;j<8;j++)c=(c&32768)?(((c<<1)^0x1021)&65535):((c<<1)&65535);}return c;}\nconst utc=new Date().toISOString().slice(0,10).replace(/-/g,\"\");\nfor(const r of d.replies.slice().sort((a,b)=>Number(a.seq)-Number(b.seq))){\n const cmd=String(r.command||\"\").toUpperCase(),seq=Number(r.seq),age=Number(r.age_ms);\n if(!/^(QPIGS2?|QMOD|QPIRI|QDOP|QPIWS|QMN|QID|QVFW3?|QBMS|Q1|QET|QLT|QED[0-9]{8}|QLD[0-9]{8}|QEM[0-9]{6}|QLM[0-9]{6}|QEY[0-9]{4}|QLY[0-9]{4})$/.test(cmd))continue;\n if(!Number.isSafeInteger(seq)||seq<=0||seq>max||seq<=(seen[cmd]||0))continue;\n const ttl=cmd===\"QPIGS\"?10000:cmd===\"QPIGS2\"?15000:/^(QMOD|QPIRI|QDOP|QPIWS)$/.test(cmd)?900000:90000000;\n if(!Number.isFinite(age)||age<0||age>ttl)continue;\n if(/^Q[EL][DMY][0-9]+$/.test(cmd)){\n  const key=cmd.slice(3),expected=cmd[2]===\"D\"?utc:cmd[2]===\"M\"?utc.slice(0,6):utc.slice(0,4);\n  if(key!==expected)continue;\n }\n let buffer;\n if(r.nak===true)buffer=Buffer.from([0x15]);\n else{\n  const payload=String(r.payload||\"\");\n  if(!payload||payload.length>440||/[^\\x20-\\x7e]/.test(payload))continue;\n  const body=Buffer.from(\"(\"+payload,\"ascii\"),crc=crc16(body);\n  buffer=Buffer.concat([body,Buffer.from([crc>>8,crc&255,13])]);\n }\n seen[cmd]=seq;\n emitted.push({inverterNum:inv,_esp_bridge:true,_esp_command:cmd,_esp_seq:seq,payload:buffer});\n}\ncontext.set(\"seen\",seen);\nreturn [emitted,{topic:\"voltronic/\"+inv+\"/availability\",payload:\"online\",retain:true}];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 800,
+    "y": 2950,
+    "wires": [
+      [
+        "06f687dbe6782ce8"
+      ],
+      [
+        "espfull1_status"
+      ]
+    ]
+  },
+  {
+    "id": "espfull1_status",
+    "type": "mqtt out",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 online status",
+    "topic": "",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "be91b725157afee1",
+    "x": 1050,
+    "y": 2990,
+    "wires": []
+  },
+  {
+    "id": "espfull2_tick",
+    "type": "inject",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 snapshot 2s",
+    "props": [
+      {
+        "p": "payload",
+        "v": "",
+        "vt": "date"
+      }
+    ],
+    "repeat": "2",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 2,
+    "topic": "",
+    "x": 120,
+    "y": 3020,
+    "wires": [
+      [
+        "espfull2_builder"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_builder",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 authenticated cache GET",
+    "func": "if(String(env.get(\"INV2_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nconst h=String(env.get(\"INV2_ESP_HOST\")||\"\");\nconst p=Number(env.get(\"INV2_ESP_PORT\")||18081);\nconst code=String(env.get(\"INV2_ESP_CODE\")||\"\");\nif(!/^[a-zA-Z0-9.-]+$/.test(h)||p<1||p>65535||code.length<8)return null;\nmsg.inverterNum=2;msg.method=\"GET\";\nmsg.url=\"http://\"+h+\":\"+p+\"/api/v1/bridge/snapshot\";\nmsg.headers={\"X-Setup-Code\":code,\"Accept\":\"application/json\"};\ndelete msg.payload;return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 3020,
+    "wires": [
+      [
+        "espfull2_http"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_http",
+    "type": "http request",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 cache HTTP",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 570,
+    "y": 3020,
+    "wires": [
+      [
+        "espfull2_replay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_catch",
+    "type": "catch",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 cache errors",
+    "scope": [
+      "espfull2_http"
+    ],
+    "uncaught": false,
+    "x": 570,
+    "y": 3060,
+    "wires": [
+      [
+        "espfull2_replay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_replay",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 native parser replay",
+    "func": "const inv=2;\nif(String(env.get(\"INV\"+inv+\"_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nconst offline={topic:\"voltronic/\"+inv+\"/availability\",payload:\"offline\",retain:true};\nlet d=msg.payload;\nif(typeof d===\"string\"){try{d=JSON.parse(d);}catch(e){d=null;}}\nif(msg.error||msg.statusCode!==200||!d||d.cache_only!==true||d.available!==true||!Array.isArray(d.replies))return [null,offline];\nconst uptime=Number(d.uptime_ms),max=Number(d.max_seq);\nif(!Number.isFinite(uptime)||!Number.isFinite(max))return [null,offline];\nlet seen=context.get(\"seen\")||{},prev=context.get(\"uptime\")||0;\nif(uptime<prev)seen={};\ncontext.set(\"uptime\",uptime);\nlet emitted=[];\nfunction crc16(bytes){let c=0;for(const b of bytes){c^=b<<8;for(let j=0;j<8;j++)c=(c&32768)?(((c<<1)^0x1021)&65535):((c<<1)&65535);}return c;}\nconst utc=new Date().toISOString().slice(0,10).replace(/-/g,\"\");\nfor(const r of d.replies.slice().sort((a,b)=>Number(a.seq)-Number(b.seq))){\n const cmd=String(r.command||\"\").toUpperCase(),seq=Number(r.seq),age=Number(r.age_ms);\n if(!/^(QPIGS2?|QMOD|QPIRI|QDOP|QPIWS|QMN|QID|QVFW3?|QBMS|Q1|QET|QLT|QED[0-9]{8}|QLD[0-9]{8}|QEM[0-9]{6}|QLM[0-9]{6}|QEY[0-9]{4}|QLY[0-9]{4})$/.test(cmd))continue;\n if(!Number.isSafeInteger(seq)||seq<=0||seq>max||seq<=(seen[cmd]||0))continue;\n const ttl=cmd===\"QPIGS\"?10000:cmd===\"QPIGS2\"?15000:/^(QMOD|QPIRI|QDOP|QPIWS)$/.test(cmd)?900000:90000000;\n if(!Number.isFinite(age)||age<0||age>ttl)continue;\n if(/^Q[EL][DMY][0-9]+$/.test(cmd)){\n  const key=cmd.slice(3),expected=cmd[2]===\"D\"?utc:cmd[2]===\"M\"?utc.slice(0,6):utc.slice(0,4);\n  if(key!==expected)continue;\n }\n let buffer;\n if(r.nak===true)buffer=Buffer.from([0x15]);\n else{\n  const payload=String(r.payload||\"\");\n  if(!payload||payload.length>440||/[^\\x20-\\x7e]/.test(payload))continue;\n  const body=Buffer.from(\"(\"+payload,\"ascii\"),crc=crc16(body);\n  buffer=Buffer.concat([body,Buffer.from([crc>>8,crc&255,13])]);\n }\n seen[cmd]=seq;\n emitted.push({inverterNum:inv,_esp_bridge:true,_esp_command:cmd,_esp_seq:seq,payload:buffer});\n}\ncontext.set(\"seen\",seen);\nreturn [emitted,{topic:\"voltronic/\"+inv+\"/availability\",payload:\"online\",retain:true}];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 800,
+    "y": 3020,
+    "wires": [
+      [
+        "e82d4d3650a26a34"
+      ],
+      [
+        "espfull2_status"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_status",
+    "type": "mqtt out",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 online status",
+    "topic": "",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "be91b725157afee1",
+    "x": 1050,
+    "y": 3060,
+    "wires": []
+  },
+  {
+    "id": "espfull3_tick",
+    "type": "inject",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 snapshot 2s",
+    "props": [
+      {
+        "p": "payload",
+        "v": "",
+        "vt": "date"
+      }
+    ],
+    "repeat": "2",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 2,
+    "topic": "",
+    "x": 120,
+    "y": 3090,
+    "wires": [
+      [
+        "espfull3_builder"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_builder",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 authenticated cache GET",
+    "func": "if(String(env.get(\"INV3_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nconst h=String(env.get(\"INV3_ESP_HOST\")||\"\");\nconst p=Number(env.get(\"INV3_ESP_PORT\")||18081);\nconst code=String(env.get(\"INV3_ESP_CODE\")||\"\");\nif(!/^[a-zA-Z0-9.-]+$/.test(h)||p<1||p>65535||code.length<8)return null;\nmsg.inverterNum=3;msg.method=\"GET\";\nmsg.url=\"http://\"+h+\":\"+p+\"/api/v1/bridge/snapshot\";\nmsg.headers={\"X-Setup-Code\":code,\"Accept\":\"application/json\"};\ndelete msg.payload;return msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 350,
+    "y": 3090,
+    "wires": [
+      [
+        "espfull3_http"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_http",
+    "type": "http request",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 cache HTTP",
+    "method": "use",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 570,
+    "y": 3090,
+    "wires": [
+      [
+        "espfull3_replay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_catch",
+    "type": "catch",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 cache errors",
+    "scope": [
+      "espfull3_http"
+    ],
+    "uncaught": false,
+    "x": 570,
+    "y": 3130,
+    "wires": [
+      [
+        "espfull3_replay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_replay",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 native parser replay",
+    "func": "const inv=3;\nif(String(env.get(\"INV\"+inv+\"_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nconst offline={topic:\"voltronic/\"+inv+\"/availability\",payload:\"offline\",retain:true};\nlet d=msg.payload;\nif(typeof d===\"string\"){try{d=JSON.parse(d);}catch(e){d=null;}}\nif(msg.error||msg.statusCode!==200||!d||d.cache_only!==true||d.available!==true||!Array.isArray(d.replies))return [null,offline];\nconst uptime=Number(d.uptime_ms),max=Number(d.max_seq);\nif(!Number.isFinite(uptime)||!Number.isFinite(max))return [null,offline];\nlet seen=context.get(\"seen\")||{},prev=context.get(\"uptime\")||0;\nif(uptime<prev)seen={};\ncontext.set(\"uptime\",uptime);\nlet emitted=[];\nfunction crc16(bytes){let c=0;for(const b of bytes){c^=b<<8;for(let j=0;j<8;j++)c=(c&32768)?(((c<<1)^0x1021)&65535):((c<<1)&65535);}return c;}\nconst utc=new Date().toISOString().slice(0,10).replace(/-/g,\"\");\nfor(const r of d.replies.slice().sort((a,b)=>Number(a.seq)-Number(b.seq))){\n const cmd=String(r.command||\"\").toUpperCase(),seq=Number(r.seq),age=Number(r.age_ms);\n if(!/^(QPIGS2?|QMOD|QPIRI|QDOP|QPIWS|QMN|QID|QVFW3?|QBMS|Q1|QET|QLT|QED[0-9]{8}|QLD[0-9]{8}|QEM[0-9]{6}|QLM[0-9]{6}|QEY[0-9]{4}|QLY[0-9]{4})$/.test(cmd))continue;\n if(!Number.isSafeInteger(seq)||seq<=0||seq>max||seq<=(seen[cmd]||0))continue;\n const ttl=cmd===\"QPIGS\"?10000:cmd===\"QPIGS2\"?15000:/^(QMOD|QPIRI|QDOP|QPIWS)$/.test(cmd)?900000:90000000;\n if(!Number.isFinite(age)||age<0||age>ttl)continue;\n if(/^Q[EL][DMY][0-9]+$/.test(cmd)){\n  const key=cmd.slice(3),expected=cmd[2]===\"D\"?utc:cmd[2]===\"M\"?utc.slice(0,6):utc.slice(0,4);\n  if(key!==expected)continue;\n }\n let buffer;\n if(r.nak===true)buffer=Buffer.from([0x15]);\n else{\n  const payload=String(r.payload||\"\");\n  if(!payload||payload.length>440||/[^\\x20-\\x7e]/.test(payload))continue;\n  const body=Buffer.from(\"(\"+payload,\"ascii\"),crc=crc16(body);\n  buffer=Buffer.concat([body,Buffer.from([crc>>8,crc&255,13])]);\n }\n seen[cmd]=seq;\n emitted.push({inverterNum:inv,_esp_bridge:true,_esp_command:cmd,_esp_seq:seq,payload:buffer});\n}\ncontext.set(\"seen\",seen);\nreturn [emitted,{topic:\"voltronic/\"+inv+\"/availability\",payload:\"online\",retain:true}];",
+    "outputs": 2,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 800,
+    "y": 3090,
+    "wires": [
+      [
+        "057108fc794236af"
+      ],
+      [
+        "espfull3_status"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_status",
+    "type": "mqtt out",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 online status",
+    "topic": "",
+    "qos": "0",
+    "retain": "true",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "be91b725157afee1",
+    "x": 1050,
+    "y": 3130,
+    "wires": []
+  }
+]
