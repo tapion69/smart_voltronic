@@ -314,6 +314,39 @@ set_io_mode 1 "$INV1_TRANSPORT"
 set_io_mode 2 "$INV2_TRANSPORT"
 set_io_mode 3 "$INV3_TRANSPORT"
 
+
+# ---------- HA SET commands: ESP32 must enter verified Learning, not legacy queue ----------
+# Do not remove the normal MQTT/HA discovery identity or alter serial/gateway.
+patch_esp_ha_commands() {
+  local n="$1" mode="$2" set_id candidate_id bridge_id legacy_id guard
+  case "$n" in
+    1) set_id="381cb2e10d9b5625"; candidate_id="b1a8cd69494aac47"; bridge_id="espfull1_learn"; legacy_id="e56dd41194be1e35" ;;
+    2) set_id="46ca504f4729209c"; candidate_id="bbd3067079b8f836"; bridge_id="espfull2_learn"; legacy_id="e4b3e0c1b7d78e69" ;;
+    3) set_id="03e8bd2641c96986"; candidate_id="9288782e4d4509cf"; bridge_id="espfull3_learn"; legacy_id="aae15edafbdf31c6" ;;
+    *) return 1 ;;
+  esac
+  guard="if(String(env.get(\"INV\${n}_TRANSPORT\")||\"\").toLowerCase()===\"esp32\") { node.warn(\"ESP32 direct SET blocked: only verified Learning supported\"); return null; }"
+  jq --arg mode "$mode" --arg sid "$set_id" --arg cid "$candidate_id" \
+     --arg bridge "$bridge_id" --arg legacy "$legacy_id" --arg guard "$guard" '
+    map(
+      if .id == $sid and .type == "function" then
+        .func |= (
+          (split("\n") | if (.[0] | startswith("if(String(env.get(\"INV")) then .[1:] else . end | join("\n"))
+          | if (contains($guard) | not) and contains("const batteryTypeMap =") then
+              sub("const batteryTypeMap ="; ($guard + "\nconst batteryTypeMap ="))
+            else . end
+        )
+      elif .id == $cid and .type == "function" then
+        .wires[0] = (if $mode == "esp32" then [$bridge] else [$legacy] end)
+      else . end
+    )
+  ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
+  logi "INV\${n}: HA SET -> Learning \${mode} routing patched"
+}
+patch_esp_ha_commands 1 "$INV1_TRANSPORT"
+patch_esp_ha_commands 2 "$INV2_TRANSPORT"
+patch_esp_ha_commands 3 "$INV3_TRANSPORT"
+
 # ---------- Injection MQTT dans le node mqtt-broker ----------
 if ! jq -e '.[] | select(.type=="mqtt-broker" and .name=="HA MQTT Broker")' /data/flows.json >/dev/null 2>&1; then
   loge 'Aucun mqtt-broker nommé "HA MQTT Broker" trouvé dans flows.json'
