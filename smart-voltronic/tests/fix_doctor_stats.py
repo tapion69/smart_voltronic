@@ -96,8 +96,8 @@ if "// ESP_DOCTOR_SUMMARY_RATES" not in body:
  const transport=String(cfg[inv]?.transport||cfg[String(inv)]?.transport||"").toLowerCase();
  if(transport==="esp32"){
   const entity=sensor(inv,"communication_health");
-  const txt = \`
-### ESP32 · Onduleur \${inv}
+  const txt = `
+### ESP32 · Onduleur ${inv}
 **Communication :** {{ states('ENTITY') }}
 
 | Mesure | Résultat |
@@ -109,7 +109,7 @@ if "// ESP_DOCTOR_SUMMARY_RATES" not in body:
 | Modifications rejetées | {{ state_attr('ENTITY','esp_write_rejected') or 0 }} |
 | Modifications incertaines | {{ state_attr('ENTITY','esp_write_uncertain') or 0 }} |
 | Réussite des modifications confirmées | {{ ((state_attr('ENTITY','esp_write_success_pct')|string) ~ ' %') if state_attr('ENTITY','esp_write_success_pct') is not none else 'Aucune commande testée' }} |
-\`.replaceAll("ENTITY",entity);
+`.replaceAll("ENTITY",entity);
   return {type:"markdown",title:"Communication ESP32 - Onduleur "+inv,content:txt};
  }
 """
