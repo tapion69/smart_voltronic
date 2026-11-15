@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Execute parse options for both ESPs and legacy serial/gateway
+        run: node smart-voltronic/tests/test-esp32-parse-options.cjs
       - name: Check original 322-node main flow and cached ESP2 owner
         run: |
           mkdir -p /tmp/esp32-main-test
