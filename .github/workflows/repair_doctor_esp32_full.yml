@@ -18,7 +18,7 @@ jobs:
         with:
           ref: main
           persist-credentials: true
-      - name: Patch canonical 373-node flow and simulate day-night-switch-wake-offline
+      - name: Patch canonical 385-node flow and simulate day-night-switch-wake-offline
         run: node smart-voltronic/tests/test_doctor_esp32_night_full.cjs
       - name: Verify prior parser, learning, HA IDs and ESP health behavior
         run: |
@@ -31,7 +31,7 @@ jobs:
           node - <<'JS'
           const fs=require('fs'),assert=require('assert');
           const nodes=JSON.parse(fs.readFileSync('smart-voltronic/flows.json','utf8'));
-          assert.strictEqual(nodes.length,373);
+          assert.strictEqual(nodes.length,385);
           for(const n of nodes.filter(n=>n.type==='function')){
             try{new Function(n.func)}catch(e){throw Error('Syntax '+n.id+' '+n.name+': '+e.message)}
           }
