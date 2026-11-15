@@ -17,7 +17,8 @@ for inv in (1,2,3):
  n=by[mons[inv-1]]
  src=n["func"]
  start=src.index("const nightSleepEnabled =",src.index("ARRÊT NOCTURNE / NIGHT FREEZE"))
- night=src[start:src.index("const activeNativeDisconnected =",start)]
+ night_end=src.index("const activeNativeDisconnected =",start)
+ night=src[start:night_end]
  store=src[src.index("health.night_sleep_enabled =",night_end):src.index("// Détermination HEALTH",night_end)]
  assert "const inNightWindow =" in night and "previousNightFreeze" in night
  assert "health.night_freeze =" in store
