@@ -1,5 +1,5 @@
 name: "Smart Voltronic ESP32 S3 TEST"
-version: "1.1.5"
+version: "1.1.6"
 slug: "smart_voltronic_esp32_test"
 description: "Banc de test ESP32 S3 / HA - installation separee, MQTT attention aux doublons"
 
