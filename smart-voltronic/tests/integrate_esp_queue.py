@@ -145,7 +145,8 @@ function publish(out){
 }
 function expire(){
  const before=q.items.length;
- q.items=q.items.filter(item=>item.added>now-TTL&&item.added<=now+60000);
+ q.items=q.items.filter(item=>(q.inflight&&q.inflight.id===item.id)||
+  (item.added>now-TTL&&item.added<=now+60000));
  const diff=before-q.items.length;
  if(diff){q.expired+=diff;q.last_result="expired";q.last_error="ttl_1h";}
 }
@@ -236,6 +237,26 @@ const live=String(env.get("INV"+INV+"_ESP_WRITE_ENABLED")||"false").toLowerCase(
 if(!q.items.length||!live){save();return publish(null);}
 const entry=q.items[0];
 if(entry.added<=now-TTL){expire();save();return publish(null);}
+// A fresh and already matching QPIRI confirms no write is needed.
+// Never treat numeric string "0" or a missing field as an implicit 0.
+const qp=state.params?.qpiri||{};
+const numericFields={
+ battery_bulk_voltage:"battery_bulk_voltage",
+ battery_float_voltage:"battery_float_voltage",
+ battery_under_voltage:"battery_under_voltage",
+ battery_recharge_voltage:"battery_recharge_voltage",
+ battery_re_discharge_voltage:"battery_re_discharge_voltage",
+ max_charging_current:"max_charging_current",
+ max_ac_charging_current:"max_ac_charging_current"
+};
+const field=numericFields[entry.param];
+if(field&&qp[field]!==null&&qp[field]!==undefined){
+ const actual=Number(qp[field]),wanted=Number(entry.value);
+ if(Number.isFinite(actual)&&Number.isFinite(wanted)&&Math.abs(actual-wanted)<=0.049){
+  q.items.shift();q.confirmed++;q.last_error="";
+  q.last_result="already_applied";save();return publish(null);
+ }
+}
 // Re-enter the ORIGINAL HA SET + Learning pipeline, which validates ranges
 // and performs fresh native preflight/SET/readback at the ESP; no raw HTTP writes.
 q.inflight={id:entry.id,param:entry.param,started:now};
