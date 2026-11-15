@@ -18,7 +18,7 @@ for inv in (1,2,3):
  src=n["func"]
  start=src.index("const nightSleepEnabled =",src.index("ARRÊT NOCTURNE / NIGHT FREEZE"))
  night=src[start:src.index("const activeNativeDisconnected =",start)]
- store=src[src.index("health.night_sleep_enabled =",start):src.index("// Détermination HEALTH",start)]
+ store=src[src.index("health.night_sleep_enabled =",night_end):src.index("// Détermination HEALTH",night_end)]
  assert "const inNightWindow =" in night and "previousNightFreeze" in night
  assert "health.night_freeze =" in store
  # Null/undefined PV must not turn into a fictitious 0W reading.
