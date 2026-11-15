@@ -325,7 +325,7 @@ patch_esp_ha_commands() {
     3) set_id="03e8bd2641c96986"; candidate_id="9288782e4d4509cf"; bridge_id="espfull3_learn"; legacy_id="aae15edafbdf31c6" ;;
     *) return 1 ;;
   esac
-  guard="if(String(env.get(\"INV\${n}_TRANSPORT\")||\"\").toLowerCase()===\"esp32\") { node.warn(\"ESP32 direct SET blocked: only verified Learning supported\"); return null; }"
+  guard="if(String(env.get(\"INV${n}_TRANSPORT\")||\"\").toLowerCase()===\"esp32\") { node.warn(\"ESP32 direct SET blocked: only verified Learning supported\"); return null; }"
   jq --arg mode "$mode" --arg sid "$set_id" --arg cid "$candidate_id" \
      --arg bridge "$bridge_id" --arg legacy "$legacy_id" --arg guard "$guard" '
     map(
@@ -341,7 +341,7 @@ patch_esp_ha_commands() {
       else . end
     )
   ' /data/flows.json > "$tmp" && mv "$tmp" /data/flows.json
-  logi "INV\${n}: HA SET -> Learning \${mode} routing patched"
+  logi "INV${n}: HA SET -> Learning ${mode} routing patched"
 }
 patch_esp_ha_commands 1 "$INV1_TRANSPORT"
 patch_esp_ha_commands 2 "$INV2_TRANSPORT"
