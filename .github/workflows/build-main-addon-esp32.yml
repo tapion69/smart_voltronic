@@ -20,7 +20,7 @@ jobs:
         run: docker build --progress=plain --no-cache --build-arg BUILD_FROM=ghcr.io/hassio-addons/base:21.0.9 -t smart-voltronic-esp32:main smart-voltronic
       - name: Verify Node-RED 5 and native module requirements
         run: |
-          docker run --rm --entrypoint /bin/bash smart-voltronic-esp32:main -c 'node --version; node-red --version; node -e "require(\x27ws\x27)"'
+          docker run --rm --entrypoint /bin/bash smart-voltronic-esp32:main -c "node --version && node-red --version && cd /addon && node -p 'require.resolve(\"ws\")'"
       - name: Check 3-mode config and 322 main flow preserved
         run: |
           bash -n smart-voltronic/run.sh
