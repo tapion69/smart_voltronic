@@ -105,6 +105,14 @@ if section not in doctor["func"]:
 """
     doctor["func"] = doctor["func"].replace(serial, content + serial, 1).replace(queue, "{% endif %}\n" + queue, 1)
 
+for inv in (1, 2, 3):
+    replay = by_id["espfull" + str(inv) + "_replay"]
+    broken = 'global.set("inv"+inv+"_esp_health",h);\\n return markEspFailure();'
+    fixed = 'global.set("inv"+inv+"_esp_health",h);\\n return [null,offline];'
+    if broken in replay["func"]:
+        replay["func"] = replay["func"].replace(broken, fixed, 1)
+    assert fixed in replay["func"], "ESP error path must not recurse"
+
 for node_id in ("4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5","f4c19e972e33cb09"):
     assert by_id[node_id]["func"] == orig_by_id[node_id]["func"], "HA discovery unique IDs changed"
     assert by_id[node_id]["wires"] == orig_by_id[node_id]["wires"], "HA discovery wires changed"
