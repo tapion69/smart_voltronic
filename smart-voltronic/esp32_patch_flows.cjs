@@ -63,6 +63,26 @@ for(let idx=0;idx<3;idx++){
  assert(req.type==="function"&&pump.type==="function"&&set.type==="function"&&candidate.type==="function","node type mismatch INV"+i);
  assert(set.name==="HA SET → Voltronic CMD"&&candidate.name==="Learning - Build Candidate","command mapping changed for INV"+i);
  assert(Array.isArray(candidate.wires)&&candidate.wires.length>=2,"candidate outputs changed INV"+i);
+ // The historical parser obtains the command identity only from the UART
+ // queue's inflight record. That queue is intentionally OFF for ESP32.
+ // Cache replies already carry their strict, CRC-validated read command;
+ // without this adaptation the parser silently categorizes everything UNKNOWN
+ // and none of the unchanged MQTT/HA entities receive measurements.
+ const parserId=["06f687dbe6782ce8","e82d4d3650a26a34","057108fc794236af"][idx];
+ const parser=byId.get(parserId);
+ assert(parser&&parser.type==="function","original Voltronic parser missing INV"+i);
+ const marker="// ESP_BRIDGE_VERIFIED_REPLY_CMD_INV"+i+"\n";
+ if(!parser.func.includes(marker)){
+    const target="const inflight = flow.get(inflightKey);";
+    assert(parser.func.includes(target),"original parser inflight lookup changed INV"+i);
+    parser.func=parser.func.replace(target,marker+
+      'const espCmd = String(msg._esp_command || "").toUpperCase();\n'+
+      'const espRead = msg._esp_bridge === true && Number(msg.inverterNum) === '+i+
+      ' && /^(QPIGS2?|QMOD|QPIRI|QDOP|QPIWS|QMN|QID|QVFW3?|QBMS|Q1|QET|QLT|QED[0-9]{8}|QLD[0-9]{8}|QEM[0-9]{6}|QLM[0-9]{6}|QEY[0-9]{4}|QLY[0-9]{4})$/.test(espCmd);\n'+
+      'if (msg._esp_bridge === true && !espRead) return null;\n'+
+      'const inflight = espRead ? {cmd:espCmd,raw:espCmd,raw_manual:false} : flow.get(inflightKey);');
+ }
+
  // Do NOT poll the same UART from Node-RED and firmware.
  for(const n of [req,pump]){
    const marker="// ESP_BRIDGE_POLL_GUARD_INV"+i+"\n";
