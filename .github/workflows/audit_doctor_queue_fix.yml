@@ -1,0 +1,12 @@
+name: Audit Doctor MQTT existing device and render shape
+on:
+  push:
+    branches: [main]
+    paths: ['smart-voltronic/tests/audit_doctor_queue_fix.cjs','.github/workflows/audit_doctor_queue_fix.yml']
+permissions: {contents: read}
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/audit_doctor_queue_fix.cjs
