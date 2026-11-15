@@ -10,7 +10,7 @@ function runFlow(modes){
  for(let i=1;i<=3;i++)env["INV"+i+"_TRANSPORT"]=modes[i-1];
  cp.execFileSync("node",[addon+"/esp32_patch_flows.cjs",file,addon],{env,stdio:"pipe"});
  const a=JSON.parse(fs.readFileSync(file,"utf8"));
- assert.strictEqual(a.length,373);
+ assert.strictEqual(a.length,385);
  return a;
 }
 function runParser(a,options){
