@@ -25,7 +25,8 @@ class FakeDate extends Date {
  static now(){return clock}
 }
 const baseModes={1:"esp32",2:"esp32",3:"disabled"};
-const memory=new Map(),persistent=new Map(),fmem=new Map();
+const memory=new Map(),persistent=new Map(),fmem=new Map(),cctx=new Map();
+const context={get:k=>cctx.get(k),set:(k,v)=>cctx.set(k,v)};
 const storage={
  get:(k,scope)=>scope==="persistent"?persistent.get(k):memory.get(k),
  set:(k,v,scope)=>{(scope==="persistent"?persistent:memory).set(k,v)}
@@ -38,9 +39,9 @@ function run(inv,msg,modes=baseModes){
   if(key==="INV"+inv+"_ESP_WRITE_ENABLED")return "true";
   return undefined;
  }};
- return new Function("msg","node","global","flow","env","Date","Math","JSON",
+ return new Function("msg","node","global","flow","env","context","Date","Math","JSON",
   map.get("espqueue"+inv+"_control").func)(
-  msg,node,storage,flow,env,FakeDate,Math,JSON);
+  msg,node,storage,flow,env,context,FakeDate,Math,JSON);
 }
 const key=i=>"espqueue_inv"+i+"_v1";
 const size=i=>persistent.get(key(i))?.items?.length||0;
@@ -108,7 +109,7 @@ q=request(2,"battery_float_voltage",54.5);
 clock+=4000;
 const expiredState=persistent.get(key(2));
 assert.equal(expiredState.items.length,1);
-memory.clear(); // emulate Node-RED restart, retained file context persists.
+memory.clear();cctx.clear(); // emulate Node-RED restart, retained file context persists.
 q=tick(2);
 assert.equal(size(2),1,"file-backed persistence");
 assert.equal(state(q),"Attente");
@@ -135,7 +136,7 @@ assert.equal(persistent.get(key(2)).inflight,null);
 q=request(2,"battery_bulk_voltage",54.8);
 q=tick(2);
 assert(q[0]);
-memory.clear();
+memory.clear();cctx.clear();
 q=tick(2);
 assert.equal(size(2),0);
 assert.equal(attr(q).uncertain,1);
