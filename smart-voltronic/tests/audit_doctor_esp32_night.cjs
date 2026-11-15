@@ -15,3 +15,6 @@ const selects=[
  ['5a8f3478dfb6b6d8',1,260],['24bf6b0e4899bf4a',1,250],
  ['d385574be7304d91',1,260],['2d7f7336b88783dc',1380,1450]
 ];for(const [id,a,b] of selects){console.log('---BEGIN EXTRACT',id,a,b); const x=m.get(id);console.log(x.func.split('\n').slice(a-1,b).map((s,j)=>(a+j)+': '+s).join('\n'));console.log('---END EXTRACT',id,a,b)}
+
+const smaller=[['5a8f3478dfb6b6d8',250,560],['fa7cc4fe4fb09bd9',1,245],['7e96e2b785b1d159',90,220],['7e96e2b785b1d159',1090,1285],['2d7f7336b88783dc',1430,1590]];
+for(const [id,from,to] of smaller){console.log('===MINI',id,from,to);const lines=m.get(id).func.split('\n');console.log(lines.slice(from-1,to).map((s,i)=>(from+i)+': '+s).join('\n'));console.log('===END MINI',id,from,to)}
