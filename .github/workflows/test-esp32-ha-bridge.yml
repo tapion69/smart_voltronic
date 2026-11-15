@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - test/esp32-ha-bridge
+      - dev/esp32-s3-full-live-test
     paths:
       - 'smart-voltronic/**'
       - '.github/workflows/test-esp32-ha-bridge.yml'
@@ -29,4 +30,4 @@ jobs:
           grep -q 'list(serial|gateway|esp32)' smart-voltronic/config.yaml
           grep -q 'esp32)' smart-voltronic/run.sh
           grep -Fq 'INV${n}_ESP_WRITE_ENABLED' smart-voltronic/run.sh
-          grep -q 'espfull_unpack_1' smart-voltronic/flows.json
+          grep -q 'espfull1_learn' smart-voltronic/esp32_learning_nodes.json
