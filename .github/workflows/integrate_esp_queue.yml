@@ -5,6 +5,7 @@ on:
     paths:
       - 'smart-voltronic/tests/integrate_esp_queue.py'
       - 'smart-voltronic/tests/test_esp_queue_full.cjs'
+      - 'smart-voltronic/tests/test_esp_queue_runtime_route.cjs'
       - '.github/workflows/integrate_esp_queue.yml'
   workflow_dispatch:
 permissions:
@@ -18,7 +19,9 @@ jobs:
           ref: main
           persist-credentials: true
       - name: Test persistent queue, TTL, purge, verified learning, MQTT discovery
-        run: node smart-voltronic/tests/test_esp_queue_full.cjs
+        run: |
+          node smart-voltronic/tests/test_esp_queue_full.cjs
+          node smart-voltronic/tests/test_esp_queue_runtime_route.cjs
       - name: Verify every Node-RED Function body compiles
         run: |
           node - <<'NODE'
