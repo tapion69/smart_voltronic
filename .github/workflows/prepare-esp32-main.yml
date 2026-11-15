@@ -1,0 +1,31 @@
+name: Prepare verified ESP32 sidecars for main
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-voltronic/tests/prepare-esp32-main.cjs'
+      - '.github/workflows/prepare-esp32-main.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+      - name: Fetch validated bridge branch
+        run: git fetch origin dev/esp32-s3-full-live-test
+      - name: Extract exact snapshot/learning bridge without touching 322 main nodes
+        run: node smart-voltronic/tests/prepare-esp32-main.cjs
+      - name: Commit isolated ESP bridge assets to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add smart-voltronic/esp32_bridge_nodes.json smart-voltronic/esp32_learning_nodes.json
+          git commit -m "feat(esp32): vendor verified snapshot and semantic learning sidecars"
+          git pull --rebase origin main
+          git push origin HEAD:main
