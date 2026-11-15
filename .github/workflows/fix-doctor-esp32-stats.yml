@@ -1,0 +1,46 @@
+name: Publish canonical ESP32 Doctor stats and regression tests
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-voltronic/tests/fix_doctor_stats.py'
+      - '.github/workflows/fix-doctor-esp32-stats.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix-doctor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Generate ESP Doctor with genuine HTTP and verified-write counters
+        run: python3 smart-voltronic/tests/fix_doctor_stats.py
+      - name: Compile modified Node-RED function bodies and verify IDs
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('assert');
+          const nodes=JSON.parse(fs.readFileSync('smart-voltronic/flows.json'));const m=new Map(nodes.map(n=>[n.id,n]));
+          assert.equal(nodes.length,355);assert.equal(m.size,355);
+          for(let i=1;i<=3;i++){
+            for(const id of ['espfull'+i+'_replay','espfull'+i+'_learn_result']){
+              new Function(m.get(id).func);
+            }
+            for(const id of [['3ea573730416012d','7e96e2b785b1d159','638cb89fdbee6fe3'][i-1],['2978c86114a84875','8a05fbc3b3f6bdbc','d34cc22c5de4c537'][i-1]])new Function(m.get(id).func);
+          }
+          new Function(m.get('2d7f7336b88783dc').func);
+          for(const id of ['4106254e7828ed3b','384929d824e573d3','9d441aa9cbe276c5'])assert(m.get(id).func.includes('unique_id'));
+          console.log("All Doctor monitor, verified write, HTTP snapshot, dashboard functions compile: PASS");
+          NODE
+      - name: Preserve old canonical flow in git history; commit replacement
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add smart-voltronic/flows.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(doctor): genuine ESP HTTP/verified-write rates and missing-data display"
+          git pull --rebase origin main
+          git push origin HEAD:main
