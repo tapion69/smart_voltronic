@@ -27,6 +27,31 @@ const learning=JSON.parse(fs.readFileSync(path.join(addonDir,"esp32_learning_nod
 assert(cache.length===18&&learning.length===15,"wrong ESP sidecar node count");
 const byId=new Map(base.map(n=>[n.id,n]));
 assert(byId.size===base.length,"duplicate original flow IDs");
+
+// The original "parse options" function only recognizes serial/tcp.
+// Without this patch it silently turns esp32 into serial and activeInvs=0,
+// preventing MQTT HA discovery and daily counters even with working ESP cache.
+const parseOptions=byId.get("309c2c85e8d3a815");
+assert(parseOptions&&parseOptions.type==="function"&&parseOptions.name==="parse options","parse options function missing");
+const parseModeRegex=/return \(v === "gateway" \|\| v === "tcp"\) \? "tcp" : "serial";/;
+const parseModeReplacement='if (v === "esp32" || v === "disabled") return v;\n  return (v === "gateway" || v === "tcp") ? "tcp" : "serial";';
+if(!parseOptions.func.includes('if (v === "esp32" || v === "disabled") return v;')){
+ assert(parseModeRegex.test(parseOptions.func),"parse options legacy transport guard changed");
+ parseOptions.func=parseOptions.func.replace(parseModeRegex,parseModeReplacement);
+}
+const activeMarker="// ESP_BRIDGE_ACTIVE_INV_MODES\n";
+if(!parseOptions.func.includes(activeMarker)){
+ const activeRegex=/(\s*)if \(\s*c\.transport === "tcp"\s*\) \{/;
+ assert(activeRegex.test(parseOptions.func),"parse options activeInvs branch changed");
+ parseOptions.func=parseOptions.func.replace(activeRegex,(matched,space)=>
+   space+activeMarker+
+   space+'if (c.transport === "esp32") {\n'+
+   space+'  if (isValidHost(opts[\`inv\${i}_esp_host\`]) && isValidPort(opts[\`inv\${i}_esp_port\`])) activeInvs.push(i);\n'+
+   space+'  continue;\n'+
+   space+'}\n'+
+   space+'if (c.transport === "disabled") continue;\n'+matched);
+}
+
 const ioIDs=new Set();
 for(let idx=0;idx<3;idx++){
  const i=idx+1, p=expected[idx],mode=modes[idx];
