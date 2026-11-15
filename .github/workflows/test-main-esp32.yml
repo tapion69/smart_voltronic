@@ -25,7 +25,7 @@ jobs:
         run: node smart-voltronic/tests/test-main-esp32-parser.cjs
       - name: Execute parse options for both ESPs and legacy serial/gateway
         run: node smart-voltronic/tests/test-esp32-parse-options.cjs
-      - name: Check canonical 373-node flow and cached ESP2 owner
+      - name: Check canonical 385-node flow and cached ESP2 owner
         run: |
           mkdir -p /tmp/esp32-main-test
           cp smart-voltronic/flows.json /tmp/esp32-main-test/flows.json
@@ -33,7 +33,7 @@ jobs:
           node -e '
             const fs=require("fs"),assert=require("assert");
             const a=JSON.parse(fs.readFileSync("/tmp/esp32-main-test/flows.json"));const m=new Map(a.map(n=>[n.id,n]));
-            assert.equal(a.length,373);
+            assert.equal(a.length,385);
             assert.deepEqual(m.get("bbd3067079b8f836").wires[0],["espfull2_learn"]);
             assert.deepEqual(m.get("b1a8cd69494aac47").wires[0],["e56dd41194be1e35"]);
             assert.equal(m.get("6431323d5b272bc2").d,true);
@@ -46,7 +46,7 @@ jobs:
           INV1_TRANSPORT=serial INV2_TRANSPORT=tcp INV3_TRANSPORT=serial node smart-voltronic/esp32_patch_flows.cjs /tmp/esp32-main-test/flows.json smart-voltronic
           node -e '
             const a=require("/tmp/esp32-main-test/flows.json");const m=new Map(a.map(n=>[n.id,n]));const assert=require("assert");
-            assert.equal(a.length,373);
+            assert.equal(a.length,385);
             assert.deepEqual(m.get("bbd3067079b8f836").wires[0],["e4b3e0c1b7d78e69"]);
             assert.equal(m.get("6431323d5b272bc2").d,undefined);
           '
