@@ -7,6 +7,7 @@ on:
       - 'smart-voltronic/config.yaml'
       - 'smart-voltronic/run.sh'
       - 'smart-voltronic/esp32_patch_flows.cjs'
+      - 'smart-voltronic/flows.json'
       - '.github/workflows/build-main-addon-esp32.yml'
   workflow_dispatch:
 permissions:
@@ -21,8 +22,8 @@ jobs:
       - name: Verify Node-RED 5 and native module requirements
         run: |
           docker run --rm --entrypoint /bin/bash smart-voltronic-esp32:main -c "node --version && node-red --version && cd /addon && node -p 'require.resolve(\"ws\")'"
-      - name: Check 3-mode config and 322 main flow preserved
+      - name: Check 3-mode config and canonical 355-node flow
         run: |
           bash -n smart-voltronic/run.sh
           grep -q 'list(serial|gateway|esp32|disabled)' smart-voltronic/config.yaml
-          test "$(node -e 'console.log(require("./smart-voltronic/flows.json").length)')" = 322
+          test "$(node -e 'console.log(require("./smart-voltronic/flows.json").length)')" = 355
