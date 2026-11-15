@@ -41,7 +41,7 @@ Configurer un seul slot, par exemple :
 `inv1_link=esp32`, `inv1_esp_host=<IP-LAN-du-S3>`,
 `inv1_esp_port=18081`, `inv1_esp_code=<code-configuration>`,
 `inv1_esp_write_enabled=false`.
-Ne pas connecter le meme port serie a Node-RED, une gateway et le S3.
+Regler les autres emplacements `inv2_link=disabled` et `inv3_link=disabled`\n(ce mode est reserve a cette branche de test).\nNe pas connecter le meme port serie a Node-RED, une gateway et le S3.
 
 ## Protocole de validation
 
