@@ -18,3 +18,10 @@ const selects=[
 
 const smaller=[['5a8f3478dfb6b6d8',250,560],['fa7cc4fe4fb09bd9',1,245],['7e96e2b785b1d159',90,220],['7e96e2b785b1d159',1090,1285],['2d7f7336b88783dc',1430,1590]];
 for(const [id,from,to] of smaller){console.log('===MINI',id,from,to);const lines=m.get(id).func.split('\n');console.log(lines.slice(from-1,to).map((s,i)=>(from+i)+': '+s).join('\n'));console.log('===END MINI',id,from,to)}
+
+for(const id of ['cc84c35690619c8c','6610714dd2585f9b','2d7f7336b88783dc']) {
+ const x=m.get(id),arr=x.func.split('\n');for(let i=0;i<arr.length;i++){
+  if(/pv_total_power|normalized_state|pv1_power|pv2_power|invCfg|function diagnosticMarkdownCard|function inverterSummaryCard/.test(arr[i]))console.log('PVPATH',id,i+1,arr.slice(Math.max(0,i-2),Math.min(arr.length,i+4)).join(' | ').slice(0,800));
+ }
+ if(id==='2d7f7336b88783dc')console.log('DOCTORTAIL',arr.slice(1920,2005).map((s,i)=>(1921+i)+':'+s).join('\n'));
+}
