@@ -15,7 +15,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build exact Home Assistant test addon image for amd64
-        run: docker build --progress=plain --no-cache -t local/smart-voltronic-esp32-test:ci smart-voltronic
+        run: docker build --progress=plain --no-cache --build-arg BUILD_FROM=ghcr.io/hassio-addons/base:15.0.7 -t local/smart-voltronic-esp32-test:ci smart-voltronic
+      - name: Verify pinned test Alpine base wins over stale injected BUILD_FROM
+        run: |
+          docker history local/smart-voltronic-esp32-test:ci | grep -q 'node-red' || true
+          docker run --rm --entrypoint /bin/sh local/smart-voltronic-esp32-test:ci -c 'cat /etc/alpine-release; test "$(cut -d. -f1 /etc/alpine-release)" -ge 3'
       - name: Check Node-RED and installed serial node
         run: |
           docker run --rm --entrypoint /bin/bash local/smart-voltronic-esp32-test:ci -c 'node --version && npm --version && node-red --version && test -d /opt/node_modules/node-red-node-serialport'
