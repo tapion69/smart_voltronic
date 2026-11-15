@@ -128,6 +128,22 @@ for(const n of [...cache,...learning]){
  // Existing ESP nodes in canonical 355-node flows.json are the source of truth.
  // Never overwrite them with stale JSON sidecars during add-on startup.
 }
+// ESP_QUEUE_TRANSPORT_ROUTING_V1
+// In canonical flows the ESP command queue is versioned directly.
+// Restore the ORIGINAL MQTT -> HA SET wiring verbatim for serial/tcp/disabled:
+// no additional queued write logic is ever on those transports.
+const haSetIn=["381cb2e10d9b5625","46ca504f4729209c","03e8bd2641c96986"];
+const haMqttIn=["99e50980ea51a78b","0e9a9faa6a7dc537","1aa342570293ed07"];
+for(let idx=0;idx<3;idx++){
+ const i=idx+1,mode=modes[idx],qId="espqueue"+i+"_control";
+ const input=byId.get(haMqttIn[idx]);
+ if(!input||!byId.has(qId))continue; // backwards compatible with pre-queue flows
+ assert(Array.isArray(input.wires)&&Array.isArray(input.wires[0]),"HA MQTT set missing INV"+i);
+ const dest=mode==="esp32"?qId:haSetIn[idx];
+ // preserve all secondary listeners and their original ordering
+ input.wires[0]=input.wires[0].map(x=>(x===qId||x===haSetIn[idx])?dest:x);
+ assert(input.wires[0].filter(x=>x===dest).length===1,"HA SET transport route ambiguous INV"+i);
+}
 assert(byId.size===base.length,"duplicate merged ID");
 assert(base.length>=355,"expected 322 original + 33 ESP");
 for(let i=1;i<=3;i++){
