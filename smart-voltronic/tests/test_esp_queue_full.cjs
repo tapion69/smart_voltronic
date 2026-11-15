@@ -163,4 +163,17 @@ q=tick(2);assert.equal(q[0],null);
 assert.equal(size(2),1);
 q=purge(2);assert.equal(size(2),0);
 
+// Fresh normalized QPIRI already equals the requested Float: no write or
+// duplicate learning session may ever be started.
+q=request(2,"battery_float_voltage",54.7);
+memory.set("inv2_esp_health",{last_http_ok_ts:clock,last_response_ts:clock,http_ok:true});
+memory.set("inv2_comm_health",{night_freeze:false,sleeping:false});
+fmem.set("inv2_normalized_state",{_last_qpiri_ts:clock,params:{qpiri:{battery_float_voltage:54.7}}});
+const oldConfirmed=persistent.get(key(2)).confirmed;
+q=tick(2);
+assert.equal(q[0],null,"already-applied parameter must not emit SET");
+assert.equal(size(2),0);
+assert.equal(attr(q).confirmed,oldConfirmed+1);
+assert.equal(attr(q).last_result,"already_applied");
+
 console.log("PASS: 385 nodes, unique IDs, ESP-only discovery/purge, 5-item cap, 1h expiration, persistence, dedup, HA verified learning dispatch, crash/unknown safety, night freeze, serial/gateway passthrough");
