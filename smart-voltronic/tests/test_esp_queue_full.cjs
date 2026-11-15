@@ -144,6 +144,8 @@ assert.equal(q[0],null,"unconfirmed dispatched operation cannot be replayed");
 
 // Purge cannot cancel command already submitted to hardware.
 q=request(2,"max_charging_current",35);
+memory.set("inv2_esp_health",{last_http_ok_ts:clock,last_response_ts:clock,http_ok:true});
+memory.set("inv2_comm_health",{night_freeze:false,sleeping:false});
 q=tick(2);assert(q[0]);
 q=purge(2);
 assert.equal(size(2),0);
