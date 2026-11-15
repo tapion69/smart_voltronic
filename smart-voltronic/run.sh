@@ -110,6 +110,22 @@ fi
 
 tmp="/data/flows.tmp.json"
 
+# ---------- Optional isolated learning bridge for the COMPLETE flow ----------
+# Idempotent across every restart: do not duplicate Node-RED nodes or wiring.
+if [ -f /addon/esp32_learning_nodes.json ]; then
+  jq -s '
+    .[0] as $base | .[1] as $extra |
+    $base + ($extra | map(select(.id as $newId | all($base[]; .id != $newId))))
+    | map(
+      if .id=="9a6552a4d8f3ae99" then .wires[0] |= (. + ["espfull1_learn"] | unique)
+      elif .id=="4cf4c0d516871496" then .wires[0] |= (. + ["espfull2_learn"] | unique)
+      elif .id=="349ff60ff7844948" then .wires[0] |= (. + ["espfull3_learn"] | unique)
+      else . end
+    )
+  ' /data/flows.json /addon/esp32_learning_nodes.json > "$tmp" && mv "$tmp" /data/flows.json
+  logi "Full flow: verified ESP candidate learning bridge included"
+fi
+
 # ---------- Injection des ports serial configurés ----------
 logi "Mise à jour des ports serial dans flows.json..."
 
