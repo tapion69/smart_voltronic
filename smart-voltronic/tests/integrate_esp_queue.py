@@ -85,7 +85,9 @@ function init(){
   x.param.length<=48&&clean(x.value).length<=64);
  if(q.items.length>LIMIT)q.items=q.items.slice(0,LIMIT);
  // Never replay a command that may have been sent before restart/redeploy.
- if(q.inflight&&context.get("queue_initialised")!==true){q.uncertain++;q.last_error="restarted_while_write_inflight";
+ if(q.inflight&&context.get("queue_initialised")!==true){
+  q.items=q.items.filter(x=>x.id!==q.inflight.id);
+  q.uncertain++;q.last_error="restarted_while_write_inflight";
   q.last_result="uncertain_after_restart";q.inflight=null;}
  context.set("queue_initialised",true);
  return q;
