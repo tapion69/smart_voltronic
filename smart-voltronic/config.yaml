@@ -40,7 +40,7 @@ options:
   # ============================================================
   # ⚡ ONDULEUR 2
   # ============================================================
-  inv2_link: "serial"
+  inv2_link: "disabled"
   inv2_serial_port: "/dev/serial/by-id/CHANGE-ME-2"
   inv2_gateway_host: ""
   inv2_gateway_port: 8899
@@ -56,7 +56,7 @@ options:
   # ============================================================
   # ⚡ ONDULEUR 3
   # ============================================================
-  inv3_link: "serial"
+  inv3_link: "disabled"
   inv3_serial_port: "/dev/serial/by-id/CHANGE-ME-3"
   inv3_gateway_host: ""
   inv3_gateway_port: 8899
@@ -104,7 +104,7 @@ options:
 
 schema:
   # Onduleur 1
-  inv1_link: list(serial|gateway|esp32)
+  inv1_link: list(serial|gateway|esp32|disabled)
   inv1_serial_port: str?
   inv1_gateway_host: str?
   inv1_gateway_port: int?
@@ -118,7 +118,7 @@ schema:
   inv1_battery_total_capacity_kwh: float?
 
   # Onduleur 2
-  inv2_link: list(serial|gateway|esp32)
+  inv2_link: list(serial|gateway|esp32|disabled)
   inv2_serial_port: str?
   inv2_gateway_host: str?
   inv2_gateway_port: int?
@@ -132,7 +132,7 @@ schema:
   inv2_battery_total_capacity_kwh: float?
 
   # Onduleur 3
-  inv3_link: list(serial|gateway|esp32)
+  inv3_link: list(serial|gateway|esp32|disabled)
   inv3_serial_port: str?
   inv3_gateway_host: str?
   inv3_gateway_port: int?
