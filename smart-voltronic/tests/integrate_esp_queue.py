@@ -6,7 +6,7 @@ import json, copy
 from pathlib import Path
 p=Path("smart-voltronic/flows.json")
 nodes=json.loads(p.read_text())
-assert len(nodes) in (373,388),len(nodes)
+assert len(nodes) in (373,385),len(nodes)
 by={n["id"]:n for n in nodes}
 assert len(by)==len(nodes)
 discovery={id:(by[id]["func"],by[id]["wires"]) for id in ["4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5"]}
@@ -77,7 +77,7 @@ const allow=new Set(["battery_bulk_voltage","battery_float_voltage","battery_und
  "battery_recharge_voltage","battery_re_discharge_voltage","max_charging_current",
  "max_ac_charging_current","output_source_priority","charger_source_priority"]);
 function init(){
- let q=global.get(KEY,"persistent");
+ let q=global.get(KEY)||global.get(KEY,"persistent");
  if(!q||typeof q!=="object"||!Array.isArray(q.items))q={items:[],inflight:null,
   expired:0,rejected:0,purged:0,confirmed:0,uncertain:0,last_error:"",last_result:""};
  q.items=q.items.filter(x=>x&&allow.has(x.param)&&
@@ -85,8 +85,9 @@ function init(){
   x.param.length<=48&&clean(x.value).length<=64);
  if(q.items.length>LIMIT)q.items=q.items.slice(0,LIMIT);
  // Never replay a command that may have been sent before restart/redeploy.
- if(q.inflight){q.uncertain++;q.last_error="restarted_while_write_inflight";
+ if(q.inflight&&context.get("queue_initialised")!==true){q.uncertain++;q.last_error="restarted_while_write_inflight";
   q.last_result="uncertain_after_restart";q.inflight=null;}
+ context.set("queue_initialised",true);
  return q;
 }
 let q=init();
