@@ -1,0 +1,14 @@
+name: Inspect Doctor origin table for ESP diagnosis
+on:
+  push:
+    branches: [main]
+    paths: ['smart-voltronic/tests/inspect-doctor-origin.cjs','.github/workflows/inspect-doctor-origin.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/inspect-doctor-origin.cjs
