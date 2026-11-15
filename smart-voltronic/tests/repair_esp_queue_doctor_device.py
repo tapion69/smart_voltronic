@@ -14,7 +14,7 @@ for n in (1,2,3):
  q["func"]=q["func"].replace('unique_id:"smart_voltronic_inv"+INV+"_esp_queue_state_v1",','unique_id:"smart_voltronic_inv"+INV+"_esp_queue_state_v1",\n  default_entity_id:"sensor.voltronic_inv"+INV+"_esp_queue_state",')
  q["func"]=q["func"].replace('unique_id:"smart_voltronic_inv"+INV+"_esp_queue_purge_v1",','unique_id:"smart_voltronic_inv"+INV+"_esp_queue_purge_v1",\n  default_entity_id:"button.voltronic_inv"+INV+"_esp_queue_purge",')
  pub=m[["2978c86114a84875","8a05fbc3b3f6bdbc","d34cc22c5de4c537"][n-1]]
- needle='// ESP_DOCTOR_MQTT_1: preserve topic and existing entity unique IDs.'
+ needle='// ESP_DOCTOR_MQTT_'+i+': preserve topic and existing entity unique IDs.'
  assert needle in pub["func"]
  extra="""
 // ESP_QUEUE_EXISTING_COMM_HEALTH_{n}
