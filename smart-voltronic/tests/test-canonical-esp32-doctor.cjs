@@ -1,0 +1,32 @@
+"use strict";
+const assert=require("assert"),fs=require("fs"),cp=require("child_process");
+const file="/tmp/doctor-esp32-test-flow.json";
+fs.copyFileSync("smart-voltronic/flows.json",file);
+const env={...process.env,INV1_TRANSPORT:"esp32",INV2_TRANSPORT:"esp32",INV3_TRANSPORT:"disabled"};
+cp.execFileSync("node",["smart-voltronic/esp32_patch_flows.cjs",file,"smart-voltronic"],{env});
+let a=JSON.parse(fs.readFileSync(file)),m=new Map(a.map(n=>[n.id,n]));
+assert.strictEqual(a.length,355);
+const gdata=new Map([["premium.active",true]]),cdata=new Map();
+const store=x=>({get:k=>x.get(k),set:(k,v)=>x.set(k,v)});
+const global=store(gdata),context=store(cdata),flow=store(new Map());
+const node={status(){},warn(){},error(e){throw Error(String(e));},log(){}};
+function run(id,msg,inv=2){const e={get:k=>k==="INV"+inv+"_TRANSPORT"?"esp32":k==="INV"+inv+"_ESP_HOST"?"192.168.1.2":k==="INV"+inv+"_ESP_PORT"?"18081":k==="INV"+inv+"_ESP_WRITE_ENABLED"?"false":undefined};return new Function("msg","node","context","flow","global","env","Buffer",m.get(id).func)(msg,node,context,flow,global,e,Buffer)}
+const good=run("espfull2_replay",{statusCode:200,payload:{cache_only:true,available:true,uptime_ms:123000,max_seq:99,replies:[{command:"QPIGS",seq:98,age_ms:100,payload:"230.0 50.0 52.1 1000"}]}});
+assert(Array.isArray(good)&&good[0].length===1);
+assert(good[0][0].inverterNum===2 && good[0][0]._esp_command==="QPIGS");
+const h=gdata.get("inv2_esp_health");
+assert(h.http_ok && h.response_count===1 && h.last_command==="QPIGS");
+const doctor=run("7e96e2b785b1d159",{payload:{}});
+assert(doctor.payload.status==="HEALTHY" && doctor.payload.transport==="esp32");
+assert(gdata.get("inv2_comm_health").esp_http_ok===true);
+assert(gdata.get("inv2_comm_health").last_response_command==="QPIGS");
+const offline=run("espfull2_replay",{statusCode:500,payload:{}});
+assert(offline[1].payload==="offline" && gdata.get("inv2_esp_health").http_ok===false);
+const now=Date.now();const health=gdata.get("inv2_esp_health");health.last_http_ok_ts=now-60000;gdata.set("inv2_esp_health",health);
+const docOffline=run("7e96e2b785b1d159",{payload:{}});
+assert.strictEqual(docOffline.payload.status,"OFFLINE");
+const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json")),base=new Map(original.map(n=>[n.id,n]));
+for(const id of ["4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5"]){
+ assert.strictEqual(m.get(id).func,base.get(id).func);
+}
+console.log("PASS: Doctor real ESP2 cache health, QPIGS, offline transitions, unchanged HA unique IDs; 355-node canonical flow");
