@@ -1,0 +1,14 @@
+name: Diagnose ESP main parse options zero inverters
+on:
+  push:
+    branches: [main]
+    paths: ['smart-voltronic/tests/diagnose-main-esp.cjs','.github/workflows/diagnose-main-esp.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnosis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/diagnose-main-esp.cjs
