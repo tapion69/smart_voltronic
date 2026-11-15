@@ -16,3 +16,8 @@ for(const id of ['06f687dbe6782ce8','e82d4d3650a26a34','057108fc794236af']){
 for(const id of ['6610714dd2585f9b','cc84c35690619c8c']){
  const n=map.get(id),l=n.func.split('\n');console.log('NORMALIZE_LOGIC',id,l.slice(0,95).join('\n').slice(0,8000));
 }
+
+for(const id of ['06f687dbe6782ce8','e82d4d3650a26a34']){
+ const n=map.get(id),l=n.func.split('\n');
+ for(const [a,b] of [[600,645],[890,958]])console.log('PARSER_SECTION',id,a,b,l.slice(a-1,b).map((x,i)=>(a+i)+':'+x).join(' | '));
+}
