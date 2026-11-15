@@ -1,0 +1,28 @@
+name: Build user-base Node-RED 5 ESP bridge add-on
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-voltronic/Dockerfile'
+      - 'smart-voltronic/config.yaml'
+      - 'smart-voltronic/run.sh'
+      - 'smart-voltronic/esp32_patch_flows.cjs'
+      - '.github/workflows/build-main-addon-esp32.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker build as Home Assistant on amd64 (force old build-arg)
+        run: docker build --progress=plain --no-cache --build-arg BUILD_FROM=ghcr.io/hassio-addons/base:21.0.9 -t smart-voltronic-esp32:main smart-voltronic
+      - name: Verify Node-RED 5 and native module requirements
+        run: |
+          docker run --rm --entrypoint /bin/bash smart-voltronic-esp32:main -c 'node --version; node-red --version; node -p "require.resolve(\x27ws\x27)"'
+      - name: Check 3-mode config and 322 main flow preserved
+        run: |
+          bash -n smart-voltronic/run.sh
+          grep -q 'list(serial|gateway|esp32|disabled)' smart-voltronic/config.yaml
+          test "$(node -e 'console.log(require("./smart-voltronic/flows.json").length)')" = 322
