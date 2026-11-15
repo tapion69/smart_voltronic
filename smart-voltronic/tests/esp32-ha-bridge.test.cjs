@@ -166,3 +166,38 @@ test("ESP learning refuses mismatched semantic candidate without transmitting HT
  const out=h.run(ids.learn(1),{inverterNum:1,command:"PBCV55.2"});
  assert.equal(out[0],null);assert.equal(out[1].payload.nak,true);
 });
+
+test("INV1 all 20 cached native command types parse and publish via FULL existing sensor pipeline",()=>{
+ const h=harness("esp32"),day=new Date().toISOString().slice(0,10).replace(/-/g,"");
+ const num=Array(32).fill(0);Object.assign(num,{8:49,9:46,10:55.2,11:54,12:2,13:30,14:80,16:2,17:1,22:53,27:100});
+ const qdop=Array(13).fill(0);Object.assign(qdop,{8:30,9:40,10:10});
+ const rows=[
+  ["QPIGS",fields],["QPIGS2","4.1 330.0 1300"],["QMOD","B"],
+  ["QPIRI",num.join(" ")],["QDOP",qdop.join(" ")],
+  ["QPIWS","0".repeat(40)],["QBMS","0 1 0"],
+  ["Q1","0 0 0 0 0 30 32 35 38 0 00 0 65"],
+  ["QMN","AXPERT-MAX"],["QID","S123456"],
+  ["QVFW","VERFW:001"],["QVFW3","VERFW3:001"],
+  ["QET","123456"],["QLT","112233"],
+  ["QED"+day,"35000"],["QLD"+day,"20000"],
+  ["QEM"+day.slice(0,6),"600000"],["QLM"+day.slice(0,6),"350000"],
+  ["QEY"+day.slice(0,4),"910000"],["QLY"+day.slice(0,4),"800000"]
+ ];
+ const d={cache_only:true,available:true,uptime_ms:20000,max_seq:20,
+    replies:rows.map(([command,payload],i)=>({command,payload,seq:i+1,age_ms:25,nak:false}))};
+ const replay=h.run(ids.replay(1),{statusCode:200,payload:d})[0];
+ assert.equal(replay.length,20);
+ for(const msg of replay){
+    const parsed=h.run(ids.parser[1],msg);
+    assert.ok(parsed[1].length>=1,"parser "+msg._esp_command);
+    for(const m of parsed[1]){
+       const out=h.run("6610714dd2585f9b",m);
+       const state=Array.isArray(out)?out[0]:out;
+       const energy=h.run("d93a2e10acf772a3",state)||state;
+       const premium=h.run("42e26db1e016cdb9",energy)||energy;
+       const published=h.run("429e63c1cf8135ce",premium);
+       assert.equal(published[0].topic,"voltronic/1/state");
+       assert.ok(JSON.parse(published[0].payload).battery_voltage>0);
+    }
+ }
+});
