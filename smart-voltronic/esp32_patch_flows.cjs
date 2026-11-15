@@ -124,8 +124,9 @@ for(const n of [...cache,...learning]){
  // On restart do not duplicate; a firmware/backend update can update the
  // sidecar nodes without destroying every other base node.
  const old=byId.get(n.id);
- if(old)Object.assign(old,JSON.parse(JSON.stringify(n)));
- else {const copy=JSON.parse(JSON.stringify(n));base.push(copy);byId.set(n.id,copy)}
+ if(!old) {const copy=JSON.parse(JSON.stringify(n));base.push(copy);byId.set(n.id,copy)}
+ // Existing ESP nodes in canonical 355-node flows.json are the source of truth.
+ // Never overwrite them with stale JSON sidecars during add-on startup.
 }
 assert(byId.size===base.length,"duplicate merged ID");
 assert(base.length>=355,"expected 322 original + 33 ESP");
