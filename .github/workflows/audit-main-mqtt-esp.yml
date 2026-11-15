@@ -1,0 +1,14 @@
+name: Audit MQTT unique IDs and ESP2 parser pipeline
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/audit-main-mqtt-esp.yml','smart-voltronic/tests/audit-main-mqtt-esp.cjs']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/audit-main-mqtt-esp.cjs
