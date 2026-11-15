@@ -1,0 +1,16 @@
+name: Audit complete Voltronic Doctor ESP night modes
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-voltronic/tests/audit_doctor_esp32_night.cjs'
+      - '.github/workflows/audit_doctor_esp32_night.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/audit_doctor_esp32_night.cjs
