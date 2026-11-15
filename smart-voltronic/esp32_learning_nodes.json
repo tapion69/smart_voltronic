@@ -220,5 +220,131 @@
         "3a59470b27677402"
       ]
     ]
+  },
+  {
+    "id": "espfull1_verify_filter",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 deferred QPIRI verification guard",
+    "func": "if(String(env.get(\"INV1_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nif(String(msg.command||msg._cmd||\"\").toUpperCase()!==\"QPIRI\")return null;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 120,
+    "y": 3930,
+    "wires": [
+      [
+        "espfull1_verify_delay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull1_verify_delay",
+    "type": "delay",
+    "z": "69f4d187f02e8700",
+    "name": "ESP1 wait 2s for real state feedback",
+    "pauseType": "delay",
+    "timeout": "2",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "outputs": 1,
+    "x": 380,
+    "y": 3930,
+    "wires": [
+      [
+        "63a5df524557766e"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_verify_filter",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 deferred QPIRI verification guard",
+    "func": "if(String(env.get(\"INV2_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nif(String(msg.command||msg._cmd||\"\").toUpperCase()!==\"QPIRI\")return null;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 120,
+    "y": 4010,
+    "wires": [
+      [
+        "espfull2_verify_delay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull2_verify_delay",
+    "type": "delay",
+    "z": "69f4d187f02e8700",
+    "name": "ESP2 wait 2s for real state feedback",
+    "pauseType": "delay",
+    "timeout": "2",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "outputs": 1,
+    "x": 380,
+    "y": 4010,
+    "wires": [
+      [
+        "360742b2f76a7b41"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_verify_filter",
+    "type": "function",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 deferred QPIRI verification guard",
+    "func": "if(String(env.get(\"INV3_TRANSPORT\")||\"\").toLowerCase()!==\"esp32\")return null;\nif(String(msg.command||msg._cmd||\"\").toUpperCase()!==\"QPIRI\")return null;\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 120,
+    "y": 4090,
+    "wires": [
+      [
+        "espfull3_verify_delay"
+      ]
+    ]
+  },
+  {
+    "id": "espfull3_verify_delay",
+    "type": "delay",
+    "z": "69f4d187f02e8700",
+    "name": "ESP3 wait 2s for real state feedback",
+    "pauseType": "delay",
+    "timeout": "2",
+    "timeoutUnits": "seconds",
+    "rate": "1",
+    "nbRateUnits": "1",
+    "randomFirst": "1",
+    "randomLast": "5",
+    "randomUnits": "seconds",
+    "drop": false,
+    "outputs": 1,
+    "x": 380,
+    "y": 4090,
+    "wires": [
+      [
+        "eb3be03414b247e5"
+      ]
+    ]
   }
 ]
