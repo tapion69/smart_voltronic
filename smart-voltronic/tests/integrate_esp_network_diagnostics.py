@@ -13,7 +13,7 @@ from pathlib import Path
 
 p=Path("smart-voltronic/flows.json")
 nodes=json.loads(p.read_text())
-assert len(nodes) in (355,370), ("Unexpected canonical flow count",len(nodes))
+assert len(nodes) in (355,370,373), ("Unexpected canonical flow count",len(nodes))
 by={n["id"]:n for n in nodes}
 assert len(by)==len(nodes)
 discovery={
@@ -104,6 +104,15 @@ global.set(key,out);
 node.status({fill:"green",shape:"dot",text:"ESP"+inv+" WiFi "+(out.wifi_rssi_dbm===null?"RSSI --":out.wifi_rssi_dbm+" dBm")+" | RS232 "+(out.uart_timeouts===null?"--":out.uart_timeouts)+" timeouts"});
 return null;
 '''.replace("__I__",tag)
+
+    snapcatch_id="espnet"+tag+"_snapshot_catch"
+    if snapcatch_id not in by:
+        catch=dict(id=snapcatch_id,type="catch",z=by["espfull"+tag+"_tick"]["z"],
+            name="ESP"+tag+" snapshot HTTP timeout catcher",
+            scope=["espfull"+tag+"_http"],uncaught=False,
+            wires=[["espfull"+tag+"_replay"]],x=570,y=1030+inv*180)
+        nodes.append(catch)
+        by[catch["id"]]=catch
 
     replay=by["espfull"+tag+"_replay"]
     code=replay["func"]
@@ -296,6 +305,6 @@ if marker not in code:
 
 for id,(func,wires) in discovery.items():
     assert by[id]["func"]==func and by[id]["wires"]==wires,("HA discovery changed",id)
-assert len(nodes)==370 and len({n["id"] for n in nodes})==370
+assert len(nodes)==373 and len({n["id"] for n in nodes})==373
 p.write_text(json.dumps(nodes,ensure_ascii=False,separators=(",",":"))+"\n")
-print("PASS canonical 370 nodes: WiFi, HTTP outage durations, RS232 native counters; HA unique IDs and legacy unchanged")
+print("PASS canonical 373 nodes: WiFi, HTTP outage durations, RS232 native counters; HA unique IDs and legacy unchanged")
