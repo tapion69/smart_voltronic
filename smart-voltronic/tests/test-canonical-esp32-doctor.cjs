@@ -6,7 +6,7 @@ const env={...process.env,INV1_TRANSPORT:"esp32",INV2_TRANSPORT:"esp32",INV3_TRA
 cp.execFileSync("node",["smart-voltronic/esp32_patch_flows.cjs",file,"smart-voltronic"],{env});
 let a=JSON.parse(fs.readFileSync(file)),m=new Map(a.map(n=>[n.id,n]));
 assert.strictEqual(a.length,355);
-const gdata=new Map([["premium.active",true]]),cdata=new Map();
+const gdata=new Map([["premium.active",true],["inv2_comm_health",{started_ts:Date.now()}]]),cdata=new Map();
 const store=x=>({get:k=>x.get(k),set:(k,v)=>x.set(k,v)});
 const global=store(gdata),context=store(cdata),flow=store(new Map());
 const node={status(){},warn(){},error(e){throw Error(String(e));},log(){}};
