@@ -5,6 +5,7 @@ on:
     paths:
       - 'smart-voltronic/tests/repair_doctor_esp32_full.py'
       - 'smart-voltronic/tests/test_doctor_esp32_night_full.cjs'
+      - 'smart-voltronic/tests/test-canonical-esp32-doctor.cjs'
       - '.github/workflows/repair_doctor_esp32_full.yml'
   workflow_dispatch:
 permissions:
