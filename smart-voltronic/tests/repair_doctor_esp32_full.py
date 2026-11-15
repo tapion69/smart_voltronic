@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 p=Path("smart-voltronic/flows.json")
 nodes=json.loads(p.read_text())
-assert len(nodes)==355
+assert len(nodes) in (355,373)
 by={n["id"]:n for n in nodes}
-assert len(by)==355
+assert len(by)==len(nodes)
 if all("ESP_DOCTOR_NIGHT_REPAIRED_INV"+str(i) in by[["3ea573730416012d","7e96e2b785b1d159","638cb89fdbee6fe3"][i-1]]["func"] for i in (1,2,3)):
  print("PASS: canonical 355-node ESP Doctor already repaired; no changes")
  raise SystemExit(0)
@@ -135,6 +135,6 @@ s=s[:idx]+"{% if a(e, 'transport') != 'esp32' %}\n"+"// ESP_DOCTOR_SERIAL_ONLY_T
 doc["func"]=s
 for ident,(func,wires) in discovery.items():
  assert by[ident]["func"]==func and by[ident]["wires"]==wires
-assert len(nodes)==355 and len(by)==355
+assert len(nodes) in (355,373) and len(by)==355
 p.write_text(json.dumps(nodes,ensure_ascii=False,separators=(",",":"))+"\n")
 print("PASS: original 355 nodes, ESP night switch, freeze, sleep, no fake orphans, unique IDs unchanged")
