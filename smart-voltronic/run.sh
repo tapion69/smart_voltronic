@@ -120,6 +120,9 @@ if [ -f /addon/esp32_learning_nodes.json ]; then
       if .id=="9a6552a4d8f3ae99" then .wires[0] |= (. + ["espfull1_learn"] | unique)
       elif .id=="4cf4c0d516871496" then .wires[0] |= (. + ["espfull2_learn"] | unique)
       elif .id=="349ff60ff7844948" then .wires[0] |= (. + ["espfull3_learn"] | unique)
+      elif .id=="6013564ccd697834" then .wires[0] |= (. + ["espfull1_verify_filter"] | unique)
+      elif .id=="bf5b654c1eeba5bc" then .wires[0] |= (. + ["espfull2_verify_filter"] | unique)
+      elif .id=="6fc157dd4e04371b" then .wires[0] |= (. + ["espfull3_verify_filter"] | unique)
       else . end
     )
   ' /data/flows.json /addon/esp32_learning_nodes.json > "$tmp" && mv "$tmp" /data/flows.json
