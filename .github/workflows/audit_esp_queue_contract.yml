@@ -1,0 +1,12 @@
+name: Audit ESP queue and HA SET contract
+on:
+  push:
+    branches: [main]
+    paths: ['smart-voltronic/tests/audit_esp_queue_contract.cjs','.github/workflows/audit_esp_queue_contract.yml']
+permissions: {contents: read}
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node smart-voltronic/tests/audit_esp_queue_contract.cjs
