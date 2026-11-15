@@ -52,8 +52,8 @@ function synthetic(body){
 }
 const fields=[230,50,230,50,1200,1100,35,380,52.5,92,15,72,5,280,52.5,0,0,0,0,1400,0,0,0,0,0].join(" ");
 test("Complete flow 322 preserved + 18 snapshot nodes, Doctor, Learning and 9 safe-learning nodes",()=>{
- assert.equal(nodes.length,340);assert.equal(extras.length,9);
- assert.equal(new Set([...nodes,...extras].map(n=>n.id)).size,349);
+ assert.equal(nodes.length,340);assert.equal(extras.length,15);
+ assert.equal(new Set([...nodes,...extras].map(n=>n.id)).size,355);
  assert.equal(nodes.filter(n=>/VOLTRONIC DOCTOR/.test(n.name||"")).length,5);
  assert.equal(nodes.filter(n=>/Learning - (Preprocess|Decision|Build Candidate|RX Feedback|State Feedback|Complete|Persist Profile)/.test(n.name||"")).length,21);
 });
@@ -155,6 +155,9 @@ test("ESP learning write disabled by default; enabled yields semantic verified c
  const uncertain=b.run(ids.result(1),{statusCode:500,_esp_learning_session:"s1",_esp_learning_command:"MUCHGC030",payload:{result:"post_write_read_failed"}});
  assert.equal(uncertain[2]._learn_success,false);
  assert.equal(uncertain[0],null);
+ const nak=b.run(ids.result(1),{statusCode:200,_esp_learning_session:"s1",_esp_learning_command:"MUCHGC030",payload:{verified:false,set_acknowledged:false,result:"set_rejected_by_nak"}});
+ assert.equal(nak[1].payload.nak,true);
+ assert.equal(nak[2],null);
 });
 test("ESP learning refuses mismatched semantic candidate without transmitting HTTP",()=>{
  const h=harness("esp32",{INV1_ESP_WRITE_ENABLED:"true"});
