@@ -1,0 +1,46 @@
+name: Fix ESP queue Doctor and MQTT device duplicates - 2.3.16
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'smart-voltronic/tests/repair_esp_queue_doctor_device.py'
+      - 'smart-voltronic/tests/test_repair_esp_queue_doctor_device.cjs'
+      - '.github/workflows/repair_esp_queue_doctor_device.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+      - name: Verify attached MQTT device and Doctor diagnostic layout
+        run: node smart-voltronic/tests/test_repair_esp_queue_doctor_device.cjs
+      - name: Verify ESP queue state and legacy compatibility without altering repaired flow
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),assert=require('assert');
+          const a=JSON.parse(fs.readFileSync('smart-voltronic/flows.json'));
+          const m=new Map(a.map(x=>[x.id,x]));
+          for(let i=1;i<=3;i++){
+            const q=m.get('espqueue'+i+'_control');
+            assert(q.func.includes('const LIMIT=5,TTL=3600000'));
+            assert(q.func.includes('global.set(KEY,q,"persistent")'));
+            assert(q.func.includes('if(!isEsp)'));
+            assert.equal(m.get('espqueue'+i+'_purge_in').topic,'voltronic/'+i+'/esp_queue/purge/set');
+          }
+          console.log('ESP queue 5 slots / 1 hour and purge unchanged');
+          NODE
+      - name: Commit tested canonical flows.json
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add smart-voltronic/flows.json
+          if git diff --cached --quiet; then echo 'Already fixed'; exit 0; fi
+          git commit -m 'fix(2.3.16): ESP queue MQTT under existing device, Doctor queue/purge and diagnostics formatting'
+          git pull --rebase origin main
+          git push origin HEAD:main
