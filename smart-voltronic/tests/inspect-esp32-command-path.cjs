@@ -8,3 +8,9 @@ const roots=all.filter(n=>n.type==='mqtt in'||(/Learning - Preprocess|Learning -
 for(const n of roots){console.log(JSON.stringify(summary(n)));if(/Learning - Preprocess|Learning - Decision|Learning - Build Candidate/i.test(n.name||''))console.log('SCRIPT',n.func?.slice(0,3400));}
 console.log('MQTT_IN',a.filter(n=>n.type==='mqtt in').length);
 for(const n of all.filter(n=>/bulk|float|charge current|charge voltage/i.test(n.name||'')))console.log('MATCH',JSON.stringify(summary(n)));
+
+for(const n of all.filter(n=>/HA SET|learning|command|cmd|enqueue|link (in|out)/i.test(n.name||'') && (n.z===all.find(x=>x.id==='99e50980ea51a78b')?.z||/HA SET|Learning|enqueue/i.test(n.name||'')))) {
+ console.log("PATH",JSON.stringify({...summary(n),links:n.links,mode:n.mode}));
+ if(/HA SET → Voltronic CMD/i.test(n.name||''))console.log("SET_FUNC",n.func);
+ if(/Learning - Preprocess/i.test(n.name||''))console.log("PRE_FUNC",n.func);
+}
