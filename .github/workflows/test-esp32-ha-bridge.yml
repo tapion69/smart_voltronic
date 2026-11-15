@@ -24,7 +24,7 @@ jobs:
       - name: Node-RED flow and cache adapter tests
         run: node --test smart-voltronic/tests/esp32-ha-bridge.test.cjs
       - name: Verify real HA MQTT learning routing and legacy rollback
-        run: bash smart-voltronic/tests/test-ha-esp-routing.sh
+        run: sudo bash smart-voltronic/tests/test-ha-esp-routing.sh
       - name: Add-on shell startup syntax
         run: bash -n smart-voltronic/run.sh
       - name: Confirm three allowed transport choices
