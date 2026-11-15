@@ -26,7 +26,7 @@ for inv in (1,2,3):
   "((normalizedState.pv_total_power===null||normalizedState.pv_total_power===undefined)?NaN:normalizedState.pv_total_power)\n")
  marker="// ESP_DOCTOR_MONITOR_"+str(inv)
  pos=src.index(marker)
- begin=src.rfind('if (String(env.get("INV'+str(inv)+'_TRANSPORT") || "").toLowerCase() === "esp32") {',0,pos)
+ begin=src.find('if (String(env.get("INV'+str(inv)+'_TRANSPORT") || "").toLowerCase() === "esp32") {',pos)
  assert begin>=0
  end=src.index("\n}\n",pos)+2
  prefix="""if (String(env.get("INVNUM_TRANSPORT")||"").toLowerCase()==="esp32"){
