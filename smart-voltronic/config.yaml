@@ -1,5 +1,5 @@
 name: "Smart Voltronic ESP32 S3 TEST"
-version: "1.1.7"
+version: "1.1.8"
 slug: "smart_voltronic_esp32_test"
 description: "Banc de test ESP32 S3 / HA - installation separee, MQTT attention aux doublons"
 
@@ -24,7 +24,7 @@ options:
   # ============================================================
   # ⚡ ONDULEUR 1
   # ============================================================
-  inv1_link: "serial"
+  inv1_link: "disabled"
   inv1_serial_port: "/dev/serial/by-id/CHANGE-ME-1"
   inv1_gateway_host: ""
   inv1_gateway_port: 8899
@@ -40,7 +40,7 @@ options:
   # ============================================================
   # ⚡ ONDULEUR 2
   # ============================================================
-  inv2_link: "disabled"
+  inv2_link: "esp32"
   inv2_serial_port: "/dev/serial/by-id/CHANGE-ME-2"
   inv2_gateway_host: ""
   inv2_gateway_port: 8899
