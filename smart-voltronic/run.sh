@@ -81,6 +81,8 @@ sanitize_transport() {
   case "$v" in
     serial) echo "serial" ;;
     gateway|tcp) echo "tcp" ;;
+    esp32) echo "esp32" ;;
+    disabled) echo "disabled" ;;
     *) echo "serial" ;;
   esac
 }
@@ -163,21 +165,15 @@ validate_timezone_or_fallback() {
 }
 
 install_build_tools_if_needed() {
-  if command -v gcc >/dev/null 2>&1 && \
+  if command -v python3 >/dev/null 2>&1 && \
+     command -v gcc >/dev/null 2>&1 && \
      command -v g++ >/dev/null 2>&1 && \
      command -v make >/dev/null 2>&1; then
-    logi "Build tools déjà présents"
+    logi "Build tools disponibles dans l'image"
     return 0
   fi
 
-  logw "Build tools absents, tentative d'installation runtime..."
-
-  if apk add --no-cache python3 make g++ linux-headers; then
-    logi "Build tools installés avec succès"
-    return 0
-  fi
-
-  logw "Impossible d'installer les build tools runtime, on continue sans fallback compilation"
+  loge "Build tools absents de l'image. Rebuild de l'add-on nécessaire."
   return 1
 }
 
@@ -197,15 +193,20 @@ install_node_red_nodes() {
   fi
 
   local node_version
-  local node_abi
+  local node_napi
+  local node_platform
   local runtime_signature
   local previous_runtime_signature
   local installed_version
 
   node_version="$(node --version 2>/dev/null || echo unknown)"
-  node_abi="$(node -p 'process.versions.modules || "unknown"' 2>/dev/null || echo unknown)"
+  node_napi="$(node -p 'process.versions.napi || "unknown"' 2>/dev/null || echo unknown)"
+  node_platform="$(node -p 'process.platform + "-" + process.arch' 2>/dev/null || echo unknown)"
 
-  runtime_signature="${node_version}|abi=${node_abi}|${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
+  # Serialport uses Node-API (N-API), so patch-level Node.js updates do not
+  # require rebuilding the native binding. Rebuild only when N-API, platform,
+  # or the Serialport package version changes.
+  runtime_signature="napi=${node_napi}|platform=${node_platform}|${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
   previous_runtime_signature="$(cat "$NODE_RUNTIME_MARKER" 2>/dev/null || echo "")"
 
   installed_version="$(
@@ -230,17 +231,15 @@ install_node_red_nodes() {
     fi
 
     if ! npm install \
-      --unsafe-perm \
       --no-audit \
       --no-fund \
       "${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
     then
       logw "Échec installation simple, tentative avec build tools"
 
-      install_build_tools_if_needed || true
+      install_build_tools_if_needed || exit 1
 
       if ! npm install \
-        --unsafe-perm \
         --no-audit \
         --no-fund \
         "${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
@@ -256,47 +255,23 @@ install_node_red_nodes() {
   fi
 
   # -------------------------------------------------
-  # Rebuild natif uniquement si le runtime change
-  #
-  # /data est persistant : après une mise à jour majeure
-  # de Node.js, un ancien binding natif peut rester présent.
+  # Vérification du binding natif Serialport
   # -------------------------------------------------
   if [ "$previous_runtime_signature" != "$runtime_signature" ]; then
 
-    logi "Changement runtime Node.js détecté : vérification Serialport"
+    logi "Vérification du binding Serialport : Node ${node_version}, N-API ${node_napi}, plateforme ${node_platform}"
 
-    install_build_tools_if_needed || true
+    install_build_tools_if_needed || exit 1
 
-    if npm rebuild --build-from-source @serialport/bindings-cpp; then
-      logi "Serialport recompilé pour ${node_version} (ABI ${node_abi})"
+    if npm rebuild @serialport/bindings-cpp --no-audit --no-fund; then
+      logi "Binding Serialport compilé/vérifié pour N-API ${node_napi}"
+      printf '%s\n' "$runtime_signature" > "$NODE_RUNTIME_MARKER"
     else
-      logw "Rebuild Serialport échoué, réinstallation complète"
-
-      rm -rf \
-        "/data/node_modules/${SERIALPORT_PACKAGE}" \
-        "/data/node_modules/@serialport"
-
-      if ! npm install \
-        --unsafe-perm \
-        --no-audit \
-        --no-fund \
-        "${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
-      then
-        loge "Impossible de réinstaller ${SERIALPORT_PACKAGE}@${SERIALPORT_VERSION}"
-        exit 1
-      fi
-
-      if ! npm rebuild --build-from-source @serialport/bindings-cpp; then
-        loge "Impossible de compiler @serialport/bindings-cpp pour ${node_version}"
-        exit 1
-      fi
-
-      logi "Serialport réinstallé et recompilé avec succès"
+      loge "Échec de vérification/compilation de Serialport. Les modules existants sont conservés."
+      exit 1
     fi
-
-    printf '%s\n' "$runtime_signature" > "$NODE_RUNTIME_MARKER"
   else
-    logi "Runtime Node.js / Serialport inchangé"
+    logi "Runtime N-API / plateforme / Serialport inchangé"
   fi
 }
 
@@ -509,6 +484,34 @@ export INV1_HOST INV2_HOST INV3_HOST
 export INV1_PORT INV2_PORT INV3_PORT
 export SERIAL_1 SERIAL_2 SERIAL_3
 
+
+# ESP32 S3: independent device, explicit read/write authorization per inverter.
+for n in 1 2 3; do
+  host="$(jq -r --arg k "inv${n}_esp_host" '.[$k] // ""' "$OPTS")"
+  port="$(jq -r --arg k "inv${n}_esp_port" '.[$k] // 18081 | tonumber' "$OPTS" 2>/dev/null || echo 18081)"
+  code="$(jq -r --arg k "inv${n}_esp_code" '.[$k] // ""' "$OPTS")"
+  write_enabled="$(jq -r --arg k "inv${n}_esp_write_enabled" '.[$k] // false | tostring' "$OPTS")"
+  transport_var="INV${n}_TRANSPORT"
+  transport="${!transport_var}"
+  if [ "$transport" = "esp32" ]; then
+    if [[ ! "$host" =~ ^[a-zA-Z0-9.-]+$ ]]; then
+      loge "Inv${n}: ESP32 host invalide (IP LAN ou hostname requis)"; exit 1
+    fi
+    if [[ ! "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+      loge "Inv${n}: ESP32 port invalide"; exit 1
+    fi
+    if [ "${#code}" -lt 8 ] || [ "${#code}" -gt 32 ]; then
+      loge "Inv${n}: code ESP32 doit comporter 8 à 32 caractères"; exit 1
+    fi
+  fi
+  printf -v "INV${n}_ESP_HOST" '%s' "$host"
+  printf -v "INV${n}_ESP_PORT" '%s' "$port"
+  printf -v "INV${n}_ESP_CODE" '%s' "$code"
+  printf -v "INV${n}_ESP_WRITE_ENABLED" '%s' "$write_enabled"
+  export "INV${n}_ESP_HOST" "INV${n}_ESP_PORT" "INV${n}_ESP_CODE" "INV${n}_ESP_WRITE_ENABLED"
+  logi "INV${n} transport: ${transport}; ESP write enabled=${write_enabled} (credentials redacted)"
+done
+
 # ============================================================
 # NODE-RED MODULES INSTALL
 # ============================================================
@@ -539,6 +542,18 @@ else
 
   logi "flows.json à jour (v$ADDON_FLOWS_VERSION), conservation des flows utilisateur"
 
+fi
+
+# ESP32 cached snapshots + verified semantic Learning sidecars.
+# Abort if the full flow cannot be safely patched.
+if [ -s "/addon/esp32_bridge_nodes.json" ] && [ -s "/addon/esp32_learning_nodes.json" ]; then
+  node /addon/esp32_patch_flows.cjs "$FLOWS" /addon || {
+    loge "ESP32 full flow patch refused; protecting HA and serial configurations"
+    exit 1
+  }
+else
+  loge "ESP32 bridge files missing in add-on image"
+  exit 1
 fi
 
 # ============================================================
