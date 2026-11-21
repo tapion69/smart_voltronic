@@ -1,5 +1,10 @@
 # Changelog – Smart Voltronic Add-on
 
+## 2.3.17
+
+- Réorganisation visuelle des 63 nœuds ESP32, alignés par onduleur et par fonction : lecture, diagnostics, apprentissage, vérification QPIRI et file d’écriture.
+- Les 13 groupes existants, les 385 éléments du flow, les connexions, les fonctions et les entités Home Assistant sont conservés. Seules les coordonnées des 63 nœuds ESP32 ont changé.
+
 ## 1.4.9
 
 ### Added
