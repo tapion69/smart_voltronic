@@ -1,5 +1,14 @@
 # Changelog – Smart Voltronic Add-on
 
+## 2.3.18 — priorité écriture ESP32 (bêta)
+
+- Traitement immédiat des demandes de paramètres dans la file ESP32 dès que la liaison est saine, sans attendre le cycle d'entretien de 5 secondes.
+- Contrôle QPIRI adapté à la cadence native du firmware (lecture de moins de 6 minutes au lieu de moins de 2 minutes), avec relecture immédiate de la valeur réelle avant tout SET sur l'ESP32.
+- Gestion du cas où la valeur est déjà appliquée : validation par relecture sans écriture supplémentaire.
+- File d'attente ESP32 vérifiée toutes les secondes ; une seule modification en cours, jamais de réémission automatique si l'issue d'une écriture est incertaine.
+- Serial et passerelles Ethernet inchangés ; mêmes identifiants d'entités Home Assistant.
+- À utiliser avec firmware ESP32 Voltronic 0.3.9 bêta pour le meilleur comportement HTTP/SET. Essais matériels requis avant généralisation.
+
 ## 2.3.17
 
 - Réorganisation visuelle des 63 nœuds ESP32, alignés par onduleur et par fonction : lecture, diagnostics, apprentissage, vérification QPIRI et file d’écriture.
