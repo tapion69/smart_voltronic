@@ -32,7 +32,7 @@ for(let inv=1;inv<=3;inv++){
   }
   // Only the ESP housekeeper runs more often. This does not poll serial or HTTP.
   if(tick.repeat!=="1"&&tick.repeat!=="5")throw Error("ESP"+inv+" unknown housekeeping cadence");
-  tick.repeat="1";
+  if(tick.repeat!=="1"){tick.repeat="1";patched++;}
 }
 if(patched){
  const tmp=file+".priority-tmp";
