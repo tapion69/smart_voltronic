@@ -30,6 +30,18 @@ for(let inv=1;inv<=3;inv++){
     control.func=control.func.replace(oldDispatch,newDispatch);
     patched++;
   }
+  // Firmware may find the requested value already applied during its fresh
+  // native read. No SET/ACK is issued in that case; a verified no-op is success.
+  const feedback=by.get("espfull"+inv+"_learn_result");
+  if(!feedback||feedback.type!=="function")throw Error("ESP"+inv+" learning feedback missing");
+  const ackGuard='d?.verified===true&&d?.set_acknowledged===true';
+  if(feedback.func.includes(ackGuard)){
+    feedback.func=feedback.func.replace(ackGuard,
+      'd?.verified===true&&(d?.set_acknowledged===true||d?.result==="already_at_requested_value")');
+    patched++;
+  } else if(!feedback.func.includes('d?.result==="already_at_requested_value"')){
+    throw Error("ESP"+inv+" learning ACK semantics changed");
+  }
   // Only the ESP housekeeper runs more often. This does not poll serial or HTTP.
   if(tick.repeat!=="1"&&tick.repeat!=="5")throw Error("ESP"+inv+" unknown housekeeping cadence");
   if(tick.repeat!=="1"){tick.repeat="1";patched++;}
