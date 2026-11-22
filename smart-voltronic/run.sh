@@ -556,6 +556,13 @@ else
   exit 1
 fi
 
+# ESP32-only verified-write priority (idempotent, fail closed for unknown flows).
+# It runs after the canonical ESP queue is installed and before Node-RED starts.
+node /addon/esp32_write_priority_patch.cjs "$FLOWS" || {
+  loge "ESP32 verified-write priority patch refused; leaving add-on stopped"
+  exit 1
+}
+
 # ============================================================
 # PATCH SERIAL NODES
 # ============================================================
