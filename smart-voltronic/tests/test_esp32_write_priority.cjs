@@ -68,12 +68,12 @@ fmem.set("inv2_normalized_state",{_last_qpiri_ts:now,
 assert.equal(emit({_esp_queue_tick:true})[0]._esp_queue_replay,true);
 // Firmware's fresh preflight may confirm a no-op without ever sending SET.
 // Learning must complete successfully, but never misreport a failed write.
-const feedbackFn=new Function("msg","flow",after.get("espfull2_learn_result").func);
+const feedbackFn=new Function("msg","flow","global","node","context","env","Date",after.get("espfull2_learn_result").func);
 fmem.set("learn_session_inv2",{active:true,sessionId:"test-noop",param:"battery_float_voltage"});
 const verifiedNoop=feedbackFn({statusCode:200,_esp_learning_session:"test-noop",
   _esp_learning_command:"PBFT54.2",
   payload:{verified:true,set_acknowledged:false,result:"already_at_requested_value"}},
-  flowContext);
+  flowContext,global,node,context,runtime,FakeDate);
 assert.equal(verifiedNoop[0]._raw_response,"ACK");
 assert.equal(verifiedNoop[0].command,"PBFT54.2");
 console.log("PASS: ESP write priority, stale preview recovery, no duplicate SET, 3-inverter isolation");
