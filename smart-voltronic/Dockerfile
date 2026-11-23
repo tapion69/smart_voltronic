@@ -14,7 +14,7 @@ RUN apk add --no-cache \
     g++ \
     linux-headers
 
-RUN npm install -g --no-audit --no-fund node-red@5.0.7 \
+RUN npm install -g --no-audit --no-fund node-red@5.0.10 \
     && npm cache clean --force
 
 COPY . /addon
