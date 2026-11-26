@@ -122,7 +122,7 @@ if(msg._tx_end===true&&a&&msg._tx_id===a.id){
   }
  }
 }
-const match=clean(msg.topic).match(new RegExp("^voltronic/"+INV+"/set/([a-z_]+)$"));
+const match=clean(msg.topic).match(new RegExp("^voltronic/"+INV+"/set/([a-z0-9_]+)$"));
 if(match){
  const param=canonical(match[1]),v=msg.payload;
  if(disabled||(isEsp&&!allow.has(param))||v===null||v===undefined||typeof v==="object"||clean(v).length>128||!clean(v)){
