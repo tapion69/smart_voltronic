@@ -61,7 +61,7 @@ function finish(ok,reason,uncertain=false,ackOnly=false){
  const k="inv"+INV+"_queue",pending=flow.get(k);
  if(Array.isArray(pending))flow.set(k,pending.filter(x=>x._tx_id!==a.id));
  if(!ok)node.warn("INV"+INV+" transaction "+a.param+": "+reason);
- if(uncertain)q.holdUntil=now+2000;
+ if(uncertain){q.holdUntil=now+2000;if(!isEsp)q.recoverAfter=now;}
  save();
 }
 const modeKey="tx_fifo_last_mode_inv"+INV,previousMode=global.get(modeKey,"persistent");
@@ -125,6 +125,9 @@ if(msg._tx_end===true&&a&&msg._tx_id===a.id){
 const match=clean(msg.topic).match(new RegExp("^voltronic/"+INV+"/set/([a-z0-9_]+)$"));
 if(match){
  const param=canonical(match[1]),v=msg.payload;
+ if(msg.retain===true){
+  q.rejected++;q.last_result="rejected";q.last_error="retained_set_not_replayed";node.warn("INV"+INV+" refused retained SET "+param);save();return publish(null);
+ }
  if(disabled||(isEsp&&!allow.has(param))||v===null||v===undefined||typeof v==="object"||clean(v).length>128||!clean(v)){
   q.rejected++;q.last_result="rejected";q.last_error=disabled?"disabled":isEsp&&!allow.has(param)?"unsupported_esp_parameter":"invalid_value";node.warn("INV"+INV+" "+param+": "+q.last_error);save();return publish(null);
  }
@@ -147,6 +150,14 @@ if(q.inflight){
 if(disabled||!q.items.length||now<Number(q.holdUntil||0)){save();return publish(null);}
 const state=flow.get("inv"+INV+"_normalized_state")||{},learn=flow.get("learn_session_inv"+INV)||{};
 if(learn.active===true){save();return publish(null);}
+if(!isEsp){
+ const stamp=Number(es.last_response_ts||0),kind=String(es.last_response_type||"");
+ const fresh=(kind==="OK"||kind==="NAK")&&stamp>0&&now-stamp<15000&&stamp<=now;
+ // Let normal polling recover the connection before consuming a pending SET.
+ // Legacy health is initialized at startup; after uncertainty a new native reply is mandatory.
+ if((q.recoverAfter&&(!fresh||stamp<=q.recoverAfter))||(es.last_response_ts!==undefined&&!fresh)){save();return publish(null);}
+ if(q.recoverAfter)q.recoverAfter=0;
+}
 const e=q.items[0];
 const identity=state.diag?.serial||state.diag?.model||state.diag?.fw_main;
 if(allow.has(e.param)&&(!identity||!Number(state._last_qpiri_ts))){save();return publish(null);}
