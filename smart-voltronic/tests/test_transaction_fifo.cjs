@@ -58,6 +58,46 @@ for(let i=1;i<=3;i++)for(const mode of ["serial","tcp"]){
 for(let i=1;i<=3;i++){
  const h=harness(i,"esp32");h.global.set("inv"+i+"_esp_health",{http_ok:false});for(let k=0;k<5;k++)assert(h.req("max_ac_charging_current",10+k)===null,"offline queue waits");assert(h.q().items.length===5,"ESP cap");h.req("max_ac_charging_current",99);assert(h.q().rejected===1,"overflow explicit");h.step(1000);const r=h.run(h.Q,{_esp_queue_tick:true})[0];assert(r?.payload===10,"ESP recovery oldest first");
 }
+
+for(let i=1;i<=3;i++)for(const mode of ["serial","tcp"]){
+ const h=harness(i,mode);
+ const msg=h.req("battery_type","AGM");const out=h.run(h.HA,msg);
+ assert(out[1]?.length===2&&out[1][0].command==="PBT00"&&out[1][1].command==="QPIRI","native direct only relevant verification");
+ for(const cmd of out[1])h.queue(cmd);
+ assert(h.pump()[0]?.command==="PBT00","direct SET before readback");
+ h.step(100);assert(h.req("charger_source_priority","OnlySolar")===null,"learning cannot overtake direct");
+ const id=h.active().id;h.flow.set("inv"+i+"_inflight",null);
+ h.run(h.Q,{_tx_id:id,_tx_response:true,inverterNum:i,command:"PBT00",payload:{raw_response:"(ACK",nak:false}});
+ assert(h.pump()[0]?.command==="QPIRI","direct readback");
+ const fields=Array(30).fill("0");fields[12]="0";h.flow.set("inv"+i+"_inflight",null);
+ const next=h.run(h.Q,{_tx_id:id,_tx_response:true,inverterNum:i,command:"QPIRI",payload:{fields,nak:false}})[0];
+ assert(h.q().confirmed===1&&next?.payload==="OnlySolar","direct verified then learning released");
+ const c=h.start(next);assert(c.command==="PCP03","learning still intact after direct");
+ const before=h.session().sessionId;
+ assert(h.run(h.BUILD,{inverterNum:i,_learn_complete:true,_learn_session_id:"stale"})===null,"old terminal cannot finish current session");
+ assert(h.session().sessionId===before,"session remains active");
+}
+for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
+ const h=harness(i,mode);
+ const c=h.start(h.req("max_ac_charging_current",20));const sid=h.session().sessionId;
+ let next=h.run(h.RX,{inverterNum:i,_cmd:c.command,_raw_response:"(NAK",payload:{nak:true},_learn_session_id:sid});
+ assert(next?.[1]?._learn_action==="next_candidate","NAK preserves learning fallback");
+ const alt=h.run(h.BUILD,next[1])[0];
+ assert(alt?.command&&alt.command!==c.command,"next learned format, same transaction");
+ assert(h.session().sessionId===sid&&h.q().items.length===1,"candidate retry keeps reservation");
+}
+for(let i=1;i<=3;i++){
+ const h=harness(i,"esp32");
+ const first=h.start(h.req("charger_source_priority","SolarPlusUtility"));
+ h.step(3000);h.req("charger_source_priority","OnlySolar");
+ const second=h.sendEsp(first);
+ assert(second?.payload==="OnlySolar","ESP restore dispatched");
+ const restore=h.start(second),request=h.run("espfull"+i+"_learn",restore)[0];
+ assert(JSON.parse(request.payload).old===2,"ESP uses last verified value rather than stale cache");
+ const late=h.run("espfull"+i+"_learn_result",{inverterNum:i,statusCode:200,_esp_learning_session:"stale",payload:{verified:true,set_acknowledged:true}});
+ assert(late===null,"stale ESP HTTP result ignored");
+}
+
 return count.passed;
 }
 const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));const nodes=patch(original);const once=JSON.stringify(nodes);if(JSON.stringify(patch(nodes))!==once)throw Error("patch not idempotent");console.log("PASS "+tests(nodes)+" transaction assertions");

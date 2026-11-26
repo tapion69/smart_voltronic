@@ -563,6 +563,12 @@ node /addon/esp32_write_priority_patch.cjs "$FLOWS" || {
   exit 1
 }
 
+# Unified FIFO is the last flow transformation: applies to all transports.
+node /addon/transaction_fifo_patch.cjs "$FLOWS" || {
+  loge "Transaction FIFO patch refused; leaving add-on stopped"
+  exit 1
+}
+
 # ============================================================
 # PATCH SERIAL NODES
 # ============================================================
