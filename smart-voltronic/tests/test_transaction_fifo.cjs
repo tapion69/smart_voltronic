@@ -163,6 +163,56 @@ for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
  h.step(3600001);h.run(h.Q,{_esp_queue_tick:true});assert(h.q().items.length===0&&h.q().expired===limit,"expiry visible; old SET not sent");
 }
 
+
+/* Clean installations: no learned profile in either context store.
+ * Start before identity discovery; ordinary polling must remain possible
+ * until the SET can start, then only its own write/readback may pass.
+ */
+for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
+ const h=harness(i,mode),key="learned_commands";
+ h.global.set(key,{});h.global.set(key,{},"persistent");
+ h.state.diag={};h.state._last_qpiri_ts=0;
+ assert(h.req("max_ac_charging_current",20)===null,"cold startup holds SET until discovery");
+ assert(h.q().items.length===1&&!h.active(),"cold startup preserves command");
+ if(mode!=="esp32"){
+  h.queue({_origin:"poll_fast_fault",command:"QMOD",inverterNum:i});
+  assert(h.pump()[0]?.command==="QMOD","discovery polling is not starved");
+  h.flow.set("inv"+i+"_inflight",null);
+  h.queue({_origin:"poll_fast_fault",command:"QPIGS",inverterNum:i});
+ }
+ h.state.diag={serial:"TEST"+i};h.step(1000);
+ const first=h.run(h.Q,{_esp_queue_tick:true})[0];
+ assert(first?.payload===20,"cold discovery releases SET");
+ const initial=h.start(first),sid=h.session().sessionId;
+ assert(initial?.command?.startsWith("MUCHGC"),"first unlearned candidate built");
+ h.step(3000);assert(h.req("charger_source_priority","SolarPlusUtility")===null,"cold learning retains FIFO reservation");
+ if(mode!=="esp32"){
+  h.queue({_origin:"poll_fast_fault",command:"QMOD",inverterNum:i});
+  h.queue(initial);
+  assert(h.pump()[0]?.command===initial.command,"SET overtakes existing and new polls");
+  h.flow.set("inv"+i+"_inflight",null);
+ }
+ const nak=mode==="esp32"?h.run("espfull"+i+"_learn_result",{inverterNum:i,statusCode:400,_esp_learning_session:sid,_esp_learning_command:initial.command,payload:{result:"set_rejected_by_nak"}})[1]:null;
+ const retry=mode==="esp32"?h.run(h.RX,nak):h.reply(initial.command,false);
+ assert(retry?.[1]?._learn_action==="next_candidate","first installation NAK selects next candidate");
+ const alt=h.run(h.BUILD,retry[1])[0];
+ assert(alt?.command&&alt.command!==initial.command&&h.session().sessionId===sid,"cold retry stays in same session");
+ const next=mode==="esp32"?h.sendEsp(alt):h.sendNative(alt,20);
+ assert(next?.payload==="SolarPlusUtility","second cold SET waits for verified first");
+ const stored=h.global.get(key)||{},persisted=h.global.get(key,"persistent")||{};
+ assert(!!(stored["SERIAL:TEST"+i]?.max_ac_charging_current||persisted["SERIAL:TEST"+i]?.max_ac_charging_current),"cold learned numeric format saved");
+ const enumCandidate=h.start(next);
+ assert(enumCandidate?.command?.startsWith("PCP"),"unlearned priority candidate built");
+ const expected=Number(h.session().currentCandidate?.expectedCode);
+ assert(Number.isFinite(expected),"cold enum candidate has expected readback");
+ const last=mode==="esp32"?h.sendEsp(enumCandidate):h.sendNative(enumCandidate,expected);
+ assert(last===null&&h.q().confirmed===2&&!h.active(),"cold learning completes without blocking next SET");
+ if(mode!=="esp32"){
+  h.queue({_origin:"poll_fast_fault",command:"QMOD",inverterNum:i});
+  assert(!!h.pump()[0],"polling resumes after last write");
+ }
+}
+
 return count.passed;
 }
 const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));const nodes=patch(original);const once=JSON.stringify(nodes);if(JSON.stringify(patch(nodes))!==once)throw Error("patch not idempotent");console.log("PASS "+tests(nodes)+" transaction assertions");
