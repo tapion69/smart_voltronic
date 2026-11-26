@@ -10,7 +10,18 @@ function patch(nodes) {
  const rep=(n,a,b)=>{must(n.func.includes(a),n.name+" missing "+String(a).slice(0,80));n.func=n.func.replace(a,b)};
  const add=(n,o,id)=>{if(!n.wires[o].includes(id))n.wires[o].push(id)};
  const marker="// TX_FIFO_V2";
- if(ids.every((_,k)=>by.get("espqueue"+(k+1)+"_control")?.func.includes(marker)))return nodes;
+ if(ids.every((_,k)=>by.get("espqueue"+(k+1)+"_control")?.func.includes(marker))){
+   // The legacy startup patch re-routes MQTT and the ESP verification link on EVERY boot.
+   // Reassert managed routing even on an already-patched /data/flows.json.
+   for(let i=1;i<=3;i++){
+    const mqtt=by.get(ids[i-1][0]),ha=by.get(ids[i-1][1]),qid="espqueue"+i+"_control";
+    mqtt.wires[0]=mqtt.wires[0].map(x=>x===ha.id||x===qid?qid:x);
+    by.get(ids[i-1][12]).wires[0]=by.get(ids[i-1][12]).wires[0].filter(x=>x!=="espfull"+i+"_verify_filter");
+    mqtt.qos="1";by.get("espqueue"+i+"_tick").repeat="1";
+   }
+   return nodes;
+ }
+ must(ids.every((_,k)=>!by.get("espqueue"+(k+1)+"_control")?.func.includes(marker)),"partial transaction patch, refusing unsafe startup");
  for(let i=1;i<=3;i++){
   const [mqtt,ha,pre,dec,build,rx,sf,done,enq,pump,parser,norm,verify]=ids[i-1].map(id=>{must(by.has(id),id);return by.get(id)});
   const qid="espqueue"+i+"_control",q=by.get(qid),tick=by.get("espqueue"+i+"_tick"),espResult=by.get("espfull"+i+"_learn_result");
@@ -19,12 +30,15 @@ function patch(nodes) {
   const old=q.func;
   const discovery=old.slice(old.indexOf('const top="voltronic/'),old.indexOf("function expire()"));
   must(discovery.includes("function publish(out)")&&discovery.includes("function messages()"),"queue discovery contract");
-  q.func=marker+"\nconst INV="+i+";\n"+String.raw`
+  q.func=marker+"\n// ESP_WRITE_PRIORITY_V1\nconst INV="+i+";\n"+String.raw`
 const mode=String(env.get("INV"+INV+"_TRANSPORT")||"serial").toLowerCase();
 const isEsp=mode==="esp32", disabled=mode==="disabled";
 const KEY=isEsp?"espqueue_inv"+INV+"_v1":"nativequeue_inv"+INV+"_v2";
 const ACTIVE="inv"+INV+"_tx_active", DIRECT="inv"+INV+"_tx_direct";
-const LIMIT=isEsp?5:200, TTL=3600000, now=Date.now();
+const TTL=3600000, now=Date.now();
+const eh=global.get("inv"+INV+"_esp_health")||{},es=global.get("inv"+INV+"_comm_health")||{};
+const espOnline=isEsp&&String(env.get("INV"+INV+"_ESP_WRITE_ENABLED")||"false").toLowerCase()==="true"&&eh.http_ok===true&&now-Number(eh.last_http_ok_ts||0)<10000&&now-Number(eh.last_response_ts||0)<15000&&es.night_freeze!==true&&es.sleeping!==true;
+const LIMIT=isEsp&&!espOnline?5:200;
 const clean=v=>String(v??"").trim();
 const canonical=p=>({battery_cutoff_voltage:"battery_under_voltage",back_to_grid_voltage:"battery_recharge_voltage",back_to_battery_voltage:"battery_re_discharge_voltage",grid_charging_current:"max_ac_charging_current"}[p]||p);
 const allow=new Set(["battery_bulk_voltage","battery_float_voltage","battery_under_voltage","battery_recharge_voltage","battery_re_discharge_voltage","max_charging_current","max_ac_charging_current","output_source_priority","charger_source_priority"]);
@@ -32,11 +46,11 @@ let q=global.get(KEY)||(isEsp?global.get(KEY,"persistent"):null);
 if(!q||!Array.isArray(q.items))q={items:[],inflight:null,expired:0,rejected:0,purged:0,confirmed:0,uncertain:0,last_error:"",last_result:"",sequence:0,failed:0,ack_only:0};
 for(const k of ["expired","rejected","purged","confirmed","uncertain","sequence","failed","ack_only"])q[k]=Number(q[k]||0);
 if(context.get("tx_mode")!==mode){
- if(q.inflight){q.items=q.items.filter(x=>x.id!==q.inflight.id);q.inflight=null;q.uncertain++;q.last_error="restart_inflight_not_replayed";}
+ if(q.inflight){q.items=q.items.filter(x=>x.id!==q.inflight.id);q.inflight=null;q.uncertain++;q.last_error="restart_inflight_not_replayed";q.last_result="uncertain";}
  flow.set(ACTIVE,null);flow.set(DIRECT,null);context.set("tx_mode",mode);
 }
 function save(){global.set(KEY,q);if(isEsp)global.set(KEY,q,"persistent");}
-`+discovery.replace("const out=[","const out=[\n  {topic:\"voltronic/\"+INV+\"/transactions/status\",payload:JSON.stringify({mode,depth:count,inflight:q.inflight?.param||null,confirmed:q.confirmed,ack_only:q.ack_only,failed:q.failed,uncertain:q.uncertain,rejected:q.rejected,expired:q.expired,last_result:q.last_result,last_error:q.last_error}),retain:true},").replace("m.splice(2);","m.splice(3);")+String.raw`
+`+discovery.replace("count===LIMIT", "count>=LIMIT").replace("const out=[","const out=[\n  {topic:\"voltronic/\"+INV+\"/transactions/status\",payload:JSON.stringify({mode,depth:count,inflight:q.inflight?.param||null,confirmed:q.confirmed,ack_only:q.ack_only,failed:q.failed,uncertain:q.uncertain,rejected:q.rejected,expired:q.expired,last_result:q.last_result,last_error:q.last_error}),retain:true},").replace("m.splice(2);","m.splice(3);")+String.raw`
 function finish(ok,reason,uncertain=false,ackOnly=false){
  const a=q.inflight;if(!a)return;
  q.items=q.items.filter(x=>x.id!==a.id);q.inflight=null;
