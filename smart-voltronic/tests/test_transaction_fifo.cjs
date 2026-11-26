@@ -98,6 +98,32 @@ for(let i=1;i<=3;i++){
  assert(late===null,"stale ESP HTTP result ignored");
 }
 
+
+for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
+ const h=harness(i,mode);
+ const load2=[["load2","ON","PTOPE1",0,1],["load2_off_voltage",47.6,"PTOPV47.6",5,47.6],["load2_on_voltage",46,"PTOPVB46.0",14,46],["load2_off_soc",10,"PTOPVC010",11,10],["load2_on_soc",20,"PTOPVCB020",16,20]];
+ if(mode==="esp32"){
+  for(const [p,v] of load2){assert(h.req(p,v)===null,"ESP unsupported LOAD2 not dispatched");assert(h.q().last_error==="unsupported_esp_parameter","ESP LOAD2 rejection explicit");}
+  assert(h.q().rejected===5&&h.q().items.length===0,"ESP LOAD2 leaves queue clean");continue;
+ }
+ let next=h.req(load2[0][0],load2[0][1]);
+ assert(next?.topic.endsWith("/load2"),"LOAD2 reaches FIFO");
+ for(const [p,v] of load2.slice(1)){h.step(3000);assert(h.req(p,v)===null,"LOAD2 waits in order");}
+ for(const [p,v,command,index,expected] of load2){
+  assert(next?.topic.endsWith("/"+p)&&next.payload===v,"LOAD2 FIFO "+p);
+  const out=h.run(h.HA,next),set=Array.isArray(out[1])?out[1][0]:out[1];assert(set?.command===command,"LOAD2 mapper "+p);
+  h.queue(set);assert(h.pump()[0]?.command===command,"LOAD2 SET "+p);
+  const id=h.active().id;h.flow.set("inv"+i+"_inflight",null);
+  h.run(h.Q,{_tx_id:id,_tx_response:true,inverterNum:i,command,payload:{raw_response:"(ACK",nak:false}});
+  assert(h.active()?.id===id,"LOAD2 waits for QDOP");
+  h.queue({_origin:"load2_refresh",command:"QDOP",inverterNum:i});
+  assert(h.pump()[0]?.command==="QDOP","LOAD2 QDOP dispatched");
+  const fields=Array(30).fill("0");fields[index]=String(expected);h.flow.set("inv"+i+"_inflight",null);
+  next=h.run(h.Q,{_tx_id:id,_tx_response:true,inverterNum:i,command:"QDOP",payload:{fields,nak:false}})[0];
+ }
+ assert(next===null&&h.q().confirmed===5&&!h.q().inflight,"all LOAD2 writes verified");
+}
+
 return count.passed;
 }
 const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));const nodes=patch(original);const once=JSON.stringify(nodes);if(JSON.stringify(patch(nodes))!==once)throw Error("patch not idempotent");console.log("PASS "+tests(nodes)+" transaction assertions");
