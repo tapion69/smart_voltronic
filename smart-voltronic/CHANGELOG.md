@@ -1,5 +1,13 @@
 # Changelog – Smart Voltronic Add-on
 
+## 2.3.19 — validation terrain / field validation
+
+- File FIFO par onduleur et priorité des écritures sur les interrogations périodiques RS232 et Gateway. Relecture de confirmation et protections contre les réponses obsolètes.
+- File ESP32 prioritaire côté flow ; le firmware reste propriétaire du port UART et doit confirmer la relecture réelle. Firmware Voltronic 0.3.9 bêta recommandé comme pour 2.3.18.
+- Préservation de l'apprentissage, tests mémoire vierge, profils existants, commandes successives à trois secondes, reprise après interruption, LOAD2 en liaison native et rejet des commandes MQTT retenues.
+- GitHub Actions : 2 084 assertions de simulation et 64 configurations de démarrage/redémarrage validées avant promotion.
+- Version installable depuis Home Assistant pour validation terrain demandée par le mainteneur. Pas de certification matérielle ni de garantie de livraison en cas de déconnexion ; sauvegarder l'add-on et contrôler les changements de paramètres avant toute automatisation critique. Les limites ESP32 existantes restent applicables.
+
 ## 2.3.18 — priorité écriture ESP32 (bêta)
 
 - Traitement immédiat des demandes de paramètres dans la file ESP32 dès que la liaison est saine, sans attendre le cycle d'entretien de 5 secondes.

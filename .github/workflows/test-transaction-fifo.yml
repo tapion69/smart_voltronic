@@ -1,0 +1,20 @@
+name: Transaction FIFO stability
+on:
+  push:
+    branches: ['main', 'fix/transaction-fifo-stability-20261126']
+  pull_request:
+    branches: ['main']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node smart-voltronic/tests/test_transaction_fifo.cjs
+      - run: node smart-voltronic/tests/test_transaction_fifo_startup.cjs
+      - run: bash -n smart-voltronic/run.sh
