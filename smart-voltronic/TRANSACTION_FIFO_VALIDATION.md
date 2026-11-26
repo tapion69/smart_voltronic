@@ -7,3 +7,11 @@ The shipped base flow remains intact; run.sh applies transaction_fifo_patch.cjs 
 Test: node smart-voltronic/tests/test_transaction_fifo.cjs; node smart-voltronic/tests/test_transaction_fifo_startup.cjs.
 
 Before release: real serial, gateway and ESP devices, mixed three-inverter setup, dropped/late UART frames, actual ESP firmware verified-readback contract, learned profiles and Home Assistant entity refresh, prolonged bursts and recovery. Do not merge to main or publish before these checks. Existing ambiguous enum profile detection remains a hardware compatibility concern.
+
+## 2026-11-26 expanded short-test pass
+
+- 1,880 transaction assertions passed in an isolated JavaScript simulation using the actual repository flow and function code, with simulated clocks, context and protocol replies.
+- 64 transport combinations passed repeated startup patch application (serial, tcp, esp32, disabled per inverter; 384 simulated script invocations using in-memory filesystem/process adapters).
+- Added LOAD2 FIFO/readback, retained command rejection, native fresh-response gate after uncertainty, ESP reconnect, stale completion, overflow and expiry coverage. The native guard leaves polling active while the FIFO awaits a valid response.
+- These are not hardware-in-loop, actual Node-RED runtime, MQTT broker or GitHub Actions results. No confirmed CI result was available at this point. Do not infer a release approval from assertion counts.
+- Important operational limits: an offline ESP queue holds five entries for up to one hour; native pending commands are memory-only; unsupported ESP direct commands are rejected, not emulated. A failed or ambiguous write is not guaranteed to be applied. HA automations should validate the actual resulting state and alarm on failure.
