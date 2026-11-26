@@ -1,5 +1,5 @@
 name: "Smart Voltronic Node-RED"
-version: "2.3.19-dev.1"
+version: "2.3.19"
 slug: smart_voltronic
 description: "Node-RED Voltronic: Serial, Gateway ou ESP32-S3 par onduleur (3 max)"
 

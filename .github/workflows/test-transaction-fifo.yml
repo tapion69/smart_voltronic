@@ -1,7 +1,9 @@
 name: Transaction FIFO stability
 on:
   push:
-    branches: ['fix/transaction-fifo-stability-20261126']
+    branches: ['main', 'fix/transaction-fifo-stability-20261126']
+  pull_request:
+    branches: ['main']
   workflow_dispatch:
 permissions:
   contents: read
