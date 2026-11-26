@@ -172,7 +172,7 @@ const end=(reason)=>[null,null,{inverterNum:inv,_tx_end:true,_tx_id:txInput,succ
 if(!result)return end("invalid_or_unsupported_parameter");
 if(result[0])result[0]._tx_id=txInput;
 if(result[1]){
- const arr=Array.isArray(result[1])?result[1]:[result[1]];
+ let arr=Array.isArray(result[1])?result[1]:[result[1]];
  const set=arr[0];if(!set)return end("empty_direct_command");
  if(String(env.get("INV"+inv+"_TRANSPORT")||"").toLowerCase()==="esp32")return end("unsupported_esp_direct");
  for(const m of arr){m._tx_id=txInput;m._priority=true;}
@@ -190,6 +190,8 @@ if(result[1]){
  const flag=flagMap[set._ha_param];
  const load2Map={load2:[0,command==="PTOPE1"?1:0],load2_off_voltage:[5,Number(command.slice(5))],load2_on_voltage:[14,Number(command.slice(6))],load2_off_soc:[11,Number(command.slice(6))],load2_on_soc:[16,Number(command.slice(7))]};
  const lp=load2Map[set._ha_param];
+ // Ancillary polls must not delay a verified parameter or turn a successful SET into a false failure.
+ if(readback||flag){arr=arr.filter((m,j)=>j===0||String(m.command).toUpperCase()===(readback?readback[0]:"QFLAG"));result[1]=arr;}
  flow.set("inv"+inv+"_tx_direct",{id:txInput,set:command,reads:arr.slice(1).map(x=>String(x.command).toUpperCase()),raw:set._raw_manual===true,acked:false,readback:readback?{cmd:readback[0],index:readback[1],expected:readback[2]}:null,flag:flag?{letter:flag,expected:command.startsWith("PE")}:null,verified:false,load2:lp?{index:lp[0],expected:lp[1]}:null});
 }
 return result;
@@ -284,7 +286,7 @@ const next=q.splice(idx,1)[0];`);
     if (isTimeout) {
         session.lastAck = "QPIRI_TIMEOUT";`);
   // RX failure output originally routes through Build Candidate. Forward terminal messages without creating another SET.
-  rep(build,'let session = flow.get(sessionKey);','if(msg._learn_complete===true)return [null,msg];\nlet session = flow.get(sessionKey);');
+  rep(build,'let session = flow.get(sessionKey);','if(msg._learn_complete===true){if(msg._learn_session_id&&msg._learn_session_id!==flow.get(sessionKey)?.sessionId)return null;return [null,msg];}\nlet session = flow.get(sessionKey);');
   // Native verification must be the real QPIRI response for this session; no 1.2s artificial delay.
   rep(sf,'const n = Number(v);','if(v===null||v===undefined||v==="")return null;\n    const n = Number(v);');
   rep(sf,'const ageSinceVerify = Date.now() - Number(session.verifySentAt || 0);\nif (ageSinceVerify < 1200) {\n    return null;\n}',`if(session.txId){
@@ -333,10 +335,12 @@ return result;
   rep(espResult,'_rx_ts:Date.now(),payload:state','_rx_ts:Date.now(),_esp_verified_readback:true,payload:state');
   espResult.func=espResult.func.replace('d?.verified===true&&d?.set_acknowledged===true','d?.verified===true&&(d?.set_acknowledged===true||d?.result==="already_at_requested_value")');
   const espRequest=by.get("espfull"+i+"_learn");
+  rep(espRequest,'const q=state.params?.qpiri||{},old=Number(q[fields[1]]);','const q=state.params?.qpiri||{},rawOld=q[fields[1]],old=rawOld===null||rawOld===undefined||rawOld===""?NaN:Number(rawOld);');
+  pre.func=pre.func.replaceAll("sessionId: `inv${inv}_${param}_${Date.now()}`,","sessionId: msg._tx_id ? `inv${inv}_${param}_${msg._tx_id}` : `inv${inv}_${param}_${Date.now()}`,");
   rep(espRequest,'command:cmd,_raw_response:"NAK"','command:cmd,_learn_session_id:session.sessionId,_raw_response:"NAK"');
   const wrapLearning=(n)=>{
     const old=n.func;
-    n.func=marker+"\nconst sessionAtEntry=flow.get(\"learn_session_inv\"+(msg.inverterNum??1));\nconst out=(function(){\n"+old+"\n})();\nif(!out||!sessionAtEntry)return out;\nfor(const x of out){if(x&&x._learn_complete)x._learn_session_id=sessionAtEntry.sessionId;}\nreturn out;";
+    n.func=marker+"\nconst sessionAtEntry=flow.get(\"learn_session_inv\"+(msg.inverterNum??1));\nconst out=(function(){\n"+old+"\n})();\nif(!out||!sessionAtEntry)return out;\nfor(const x of out){if(x&&x._learn_complete&&!x._learn_session_id)x._learn_session_id=sessionAtEntry.sessionId;}\nreturn out;";
   };
   wrapLearning(rx);wrapLearning(sf);wrapLearning(build);
   rep(espRequest,'payload:{reason,param:session?.param||null}','_learn_session_id:session?.sessionId,payload:{reason,param:session?.param||null}');
@@ -354,7 +358,7 @@ return result;
     '}'
   ].join("\n"));
   rep(rx,'session.verifySentAt = Date.now();','session.verifySentAt = Date.now();\n        session.verifyRetries = 0;');
-  rep(parser,'const inflightCmd =','if(!espRead&&!inflight)return null;\nconst inflightCmd =');
+  rep(parser,'const inflightCmd =','if(!espRead&&!inflight&&(Date.now()<Number(flow.get("inv"+inv+"_tx_drain_until")||0)||flow.get("inv"+inv+"_tx_active")))return null;\nconst inflightCmd =');
   const discoveryNode=by.get(["4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5"][i-1]);
   if(discoveryNode?.func.includes("command_topic: commandTopic,"))discoveryNode.func=discoveryNode.func.replaceAll("command_topic: commandTopic,","command_topic: commandTopic,\n    qos: 1,");
 
