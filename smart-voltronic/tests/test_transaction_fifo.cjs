@@ -124,6 +124,45 @@ for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
  assert(next===null&&h.q().confirmed===5&&!h.q().inflight,"all LOAD2 writes verified");
 }
 
+
+for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
+ const h=harness(i,mode);
+ const ret=h.run(h.Q,{topic:"voltronic/"+i+"/set/charger_source_priority",payload:"SolarPlusUtility",retain:true});
+ assert(ret[0]===null&&h.q().items.length===0&&h.q().last_error==="retained_set_not_replayed","old retained SET explicitly rejected");
+ const first=h.start(h.req("charger_source_priority","SolarPlusUtility"));
+ h.step(3000);h.req("max_ac_charging_current",20);h.step(3000);h.req("charger_source_priority","OnlySolar");
+ const sid=h.session().sessionId,id=h.active().id;
+ h.flow.set("learn_session_inv"+i,null);
+ h.run(h.Q,{_tx_end:true,_tx_id:id,success:false,uncertain:true,reason:"test_disconnect"});
+ assert(h.q().uncertain===1&&h.q().items.length===2,"ambiguous write not replayed; later requests retained");
+ if(mode!=="esp32"){
+  h.global.set("inv"+i+"_comm_health",{last_response_ts:h.now(),last_response_type:"OK"});
+  h.step(3000);
+  assert(h.run(h.Q,{_esp_queue_tick:true})[0]===null,"pre-disconnect response not accepted");
+  h.global.set("inv"+i+"_comm_health",{last_response_ts:h.now(),last_response_type:"ORPHAN"});
+  assert(h.run(h.Q,{_esp_queue_tick:true})[0]===null,"orphan response cannot resume writes");
+  h.step(1000);h.global.set("inv"+i+"_comm_health",{last_response_ts:h.now(),last_response_type:"OK"});
+ }else{
+  h.step(3000);h.global.set("inv"+i+"_esp_health",{http_ok:false});
+  assert(h.run(h.Q,{_esp_queue_tick:true})[0]===null,"ESP outage preserves pending requests");h.step(1000);
+ }
+ const next=h.run(h.Q,{_esp_queue_tick:true})[0];
+ assert(next?.payload===20,"recovery resumes oldest pending write");
+ const newId=h.active().id;
+ h.run(h.Q,{_tx_end:true,_tx_id:id,success:true});
+ assert(h.active()?.id===newId&&h.q().confirmed===0,"late transaction terminal ignored");
+}
+for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
+ const h=harness(i,mode);
+ if(mode==="esp32")h.global.set("inv"+i+"_esp_health",{http_ok:false});
+ else h.global.set("inv"+i+"_comm_health",{last_response_ts:0,last_response_type:""});
+ const limit=mode==="esp32"?5:200;
+ for(let k=0;k<limit;k++){assert(h.req("max_ac_charging_current",k%50+1)===null,"offline write waits");}
+ assert(h.q().items.length===limit,"bounded queue "+mode);
+ h.req("charger_source_priority","OnlySolar");assert(h.q().rejected===1&&h.q().last_error==="queue_full","overflow visible");
+ h.step(3600001);h.run(h.Q,{_esp_queue_tick:true});assert(h.q().items.length===0&&h.q().expired===limit,"expiry visible; old SET not sent");
+}
+
 return count.passed;
 }
 const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));const nodes=patch(original);const once=JSON.stringify(nodes);if(JSON.stringify(patch(nodes))!==once)throw Error("patch not idempotent");console.log("PASS "+tests(nodes)+" transaction assertions");
