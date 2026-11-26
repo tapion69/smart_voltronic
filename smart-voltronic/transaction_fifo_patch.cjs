@@ -77,7 +77,7 @@ if(previousMode&&previousMode!==mode){
 }
 if(previousMode!==mode)global.set(modeKey,mode,"persistent");
 const oldLen=q.items.length;
-q.items=q.items.filter(x=>x&&((q.inflight&&x.id===q.inflight.id)||(Number.isFinite(x.added)&&x.added>now-TTL)));
+q.items=q.items.filter(x=>x&&((q.inflight&&x.id===q.inflight.id)||(Number.isFinite(x.added)&&x.added>now-TTL&&x.added<=now+60000)));
 if(q.items.length<oldLen){q.expired+=oldLen-q.items.length;q.last_error="ttl_1h";q.last_result="expired";node.warn("INV"+INV+" expired pending transactions");}
 if(msg.topic==="voltronic/"+INV+"/esp_queue/purge/set"){
  if(!isEsp||clean(msg.payload).toUpperCase()!=="PURGE")return publish(null);
@@ -154,7 +154,7 @@ if(isEsp){
  const h=global.get("inv"+INV+"_esp_health")||{},health=global.get("inv"+INV+"_comm_health")||{};
  if(String(env.get("INV"+INV+"_ESP_WRITE_ENABLED")||"false").toLowerCase()!=="true"||
  h.http_ok!==true||now-Number(h.last_http_ok_ts||0)>=10000||now-Number(h.last_response_ts||0)>=15000||
- now-Number(state._last_qpiri_ts||0)>=360000||health.night_freeze===true||health.sleeping===true){save();return publish(null);}
+ now-Number(state._esp_qpiri_sample_ts||state._last_qpiri_ts||0)>=360000||health.night_freeze===true||health.sleeping===true){save();return publish(null);}
 }
 q.inflight={id:e.id,param:e.param,started:now};flow.set(ACTIVE,q.inflight);save();
 return publish({topic:"voltronic/"+INV+"/set/"+e.raw,payload:e.value,inverterNum:INV,_tx_id:e.id,_esp_queue_replay:isEsp});
@@ -307,6 +307,10 @@ if(result[0]&&s.txId){
  s.phase="wait_state";s.verifySentAt=Date.now();s.lastAck="ACK";s.updatedAt=Date.now();
  flow.set("learn_session_inv"+inv,s);
  flow.set("learn_pending_inv"+inv,{cmd:"QPIRI",sessionId:s.sessionId,param:s.param});
+ const previewKey="inv"+inv+"_esp_verified_preview",preview=flow.get(previewKey)||{};
+ const identity=flow.get("inv"+inv+"_normalized_state")?.diag?.serial||flow.get("inv"+inv+"_normalized_state")?.diag?.model||flow.get("inv"+inv+"_normalized_state")?.diag?.fw_main;
+ preview[s.statePath.split(".").at(-1)]={value:Number(expected),ts:Date.now(),identity,host:String(env.get("INV"+inv+"_ESP_HOST")||"")};
+ flow.set(previewKey,preview);
  const state={};let cursor=state;const p=s.statePath.split(".");
  for(const k of p.slice(0,-1)){cursor[k]={};cursor=cursor[k];}cursor[p[p.length-1]]=expected;
  return [null,null,null,{inverterNum:inv,_cmd:"QPIRI",_tx_id:s.txId,_learn_session_id:s.sessionId,_rx_ts:Date.now(),payload:state}];
@@ -335,7 +339,13 @@ return result;
   rep(espResult,'_rx_ts:Date.now(),payload:state','_rx_ts:Date.now(),_esp_verified_readback:true,payload:state');
   espResult.func=espResult.func.replace('d?.verified===true&&d?.set_acknowledged===true','d?.verified===true&&(d?.set_acknowledged===true||d?.result==="already_at_requested_value")');
   const espRequest=by.get("espfull"+i+"_learn");
-  rep(espRequest,'const q=state.params?.qpiri||{},old=Number(q[fields[1]]);','const q=state.params?.qpiri||{},rawOld=q[fields[1]],old=rawOld===null||rawOld===undefined||rawOld===""?NaN:Number(rawOld);');
+  const espReplay=by.get("espfull"+i+"_replay");
+  // The cached snapshot's receipt time is not the UART sample time.
+  rep(espReplay,'if(uptime<prev)seen={};','if(uptime<prev){seen={};flow.set("inv"+inv+"_esp_verified_preview",null);}');
+  rep(espReplay,'_esp_seq:seq,payload:buffer','_esp_seq:seq,_esp_sample_ts:Date.now()-age,payload:buffer');
+  rep(parser,'_tx_fields: i===0&&inflight?._tx_id?parsed.fields:null,','_tx_fields: i===0&&inflight?._tx_id?parsed.fields:null,\n    _esp_sample_ts: espRead?msg._esp_sample_ts:null,');
+  rep(norm,'state._last_qpiri_ts = Date.now();','state._last_qpiri_ts = Date.now();\n  if(Number(msg._esp_sample_ts)>0)state._esp_qpiri_sample_ts=Number(msg._esp_sample_ts);');
+  rep(espRequest,"const q=state.params?.qpiri||{},old=Number(q[fields[1]]);","const q=state.params?.qpiri||{},preview=flow.get(\"inv\"+INV+\"_esp_verified_preview\")?.[fields[1]];\nconst identity=state.diag?.serial||state.diag?.model||state.diag?.fw_main;\nconst usePreview=preview&&preview.identity===identity&&preview.host===String(env.get(\"INV\"+INV+\"_ESP_HOST\")||\"\")&&Date.now()-preview.ts<360000&&Number(state._esp_qpiri_sample_ts||0)<=preview.ts;\nconst rawOld=usePreview?preview.value:q[fields[1]],old=rawOld===null||rawOld===undefined||rawOld===\"\"?NaN:Number(rawOld);");
   pre.func=pre.func.replaceAll("sessionId: `inv${inv}_${param}_${Date.now()}`,","sessionId: msg._tx_id ? `inv${inv}_${param}_${msg._tx_id}` : `inv${inv}_${param}_${Date.now()}`,");
   rep(espRequest,'command:cmd,_raw_response:"NAK"','command:cmd,_learn_session_id:session.sessionId,_raw_response:"NAK"');
   const wrapLearning=(n)=>{
