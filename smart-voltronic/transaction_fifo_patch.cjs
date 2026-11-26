@@ -50,6 +50,18 @@ function finish(ok,reason,uncertain=false,ackOnly=false){
  if(uncertain)q.holdUntil=now+2000;
  save();
 }
+const modeKey="tx_fifo_last_mode_inv"+INV,previousMode=global.get(modeKey,"persistent");
+if(previousMode&&previousMode!==mode){
+ const oldKey="espqueue_inv"+INV+"_v1";
+ const oldEsp=global.get(oldKey)||global.get(oldKey,"persistent");
+ if(oldEsp&&Array.isArray(oldEsp.items)&&!isEsp){
+  oldEsp.purged=Number(oldEsp.purged||0)+oldEsp.items.length;
+  oldEsp.items=[];oldEsp.inflight=null;oldEsp.last_error="transport_changed";
+  global.set(oldKey,oldEsp);global.set(oldKey,oldEsp,"persistent");
+ }
+ if(isEsp){q.purged+=q.items.length;q.items=[];q.inflight=null;flow.set(ACTIVE,null);flow.set(DIRECT,null);}
+}
+if(previousMode!==mode)global.set(modeKey,mode,"persistent");
 const oldLen=q.items.length;
 q.items=q.items.filter(x=>x&&((q.inflight&&x.id===q.inflight.id)||(Number.isFinite(x.added)&&x.added>now-TTL)));
 if(q.items.length<oldLen){q.expired+=oldLen-q.items.length;q.last_error="ttl_1h";q.last_result="expired";node.warn("INV"+INV+" expired pending transactions");}
@@ -79,8 +91,20 @@ if(msg._tx_end===true&&a&&msg._tx_id===a.id){
    if(Number.isFinite(actual)&&Math.abs(actual-d.load2.expected)<0.05)finish(true,"load2_verified");
    else if(d.set!=="PTOPE0"&&d.set!=="PTOPE1"||!flow.get("inv"+INV+"_load2_verify_pending"))finish(false,"load2_readback_mismatch",true);
   }else if(d.acked&&d.reads.includes(c)){
+   if(d.readback?.cmd===c){
+     const field=msg.payload?.fields?.[d.readback.index],actual=field===null||field===undefined||field===""?NaN:Number(field);
+     if(!Number.isFinite(actual)||Math.abs(actual-d.readback.expected)>=0.05){finish(false,"direct_readback_mismatch",true);return publish(null);}
+     d.verified=true;
+   }
+   if(d.flag&&c==="QFLAG"){
+     const str=clean(msg.payload?.raw).toUpperCase(),e=str.indexOf("E"),di=str.indexOf("D");
+     const enabled=e<0?"":str.slice(e+1,di>e?di:undefined),disabledPart=di<0?"":str.slice(di+1,e>di?e:undefined);
+     const v=enabled.includes(d.flag.letter)?true:disabledPart.includes(d.flag.letter)?false:null;
+     if(v!==d.flag.expected){finish(false,"flag_readback_mismatch",true);return publish(null);}
+     d.verified=true;
+   }
    d.reads=d.reads.filter(x=>x!==c);flow.set(DIRECT,d);
-   if(!d.reads.length)finish(true,"ack_and_refresh",false,true);
+   if(!d.reads.length)finish(true,"ack_and_refresh",false,!d.verified);
   }
  }
 }
@@ -139,9 +163,20 @@ if(result[1]){
  if(String(env.get("INV"+inv+"_TRANSPORT")||"").toLowerCase()==="esp32")return end("unsupported_esp_direct");
  for(const m of arr){m._tx_id=txInput;m._priority=true;}
  const command=String(set.command||"").toUpperCase();
+ const readbackMap={
+ battery_type:["QPIRI",12,Number(command.slice(3))],
+ max_discharging_current:["QPIRI",27,Number(command.slice("PBATMAXDISC".length))],
+ output_source_priority:["QPIRI",16,Number(command.slice(3))],
+ battery_recharge_capacity_pct:["QDOP",8,Number(command.slice(4))],
+ battery_redischarge_capacity_pct:["QDOP",9,Number(command.slice(4))],
+ battery_under_capacity_pct:["QDOP",10,Number(command.slice(4))]
+ };
+ const readback=readbackMap[set._ha_param];
+ const flagMap={overload_bypass:"B",fault_auto_restart:"U",over_temperature_restart:"V"};
+ const flag=flagMap[set._ha_param];
  const load2Map={load2:[0,command==="PTOPE1"?1:0],load2_off_voltage:[5,Number(command.slice(5))],load2_on_voltage:[14,Number(command.slice(6))],load2_off_soc:[11,Number(command.slice(6))],load2_on_soc:[16,Number(command.slice(7))]};
  const lp=load2Map[set._ha_param];
- flow.set("inv"+inv+"_tx_direct",{id:txInput,set:command,reads:arr.slice(1).map(x=>String(x.command).toUpperCase()),raw:set._raw_manual===true,acked:false,load2:lp?{index:lp[0],expected:lp[1]}:null});
+ flow.set("inv"+inv+"_tx_direct",{id:txInput,set:command,reads:arr.slice(1).map(x=>String(x.command).toUpperCase()),raw:set._raw_manual===true,acked:false,readback:readback?{cmd:readback[0],index:readback[1],expected:readback[2]}:null,flag:flag?{letter:flag,expected:command.startsWith("PE")}:null,verified:false,load2:lp?{index:lp[0],expected:lp[1]}:null});
 }
 return result;
 `;
@@ -152,7 +187,7 @@ const txEnd=(success,reason)=>[null,null,{inverterNum:inv,_tx_end:true,_tx_id:ms
   rep(pre,'if (param === "output_source_priority" && isTwoChoiceOutputPriorityEnabled(inv)) {','if (param === "output_source_priority" && isTwoChoiceOutputPriorityEnabled(inv)) {\\n    if(msg._tx_id)return txEnd(false,"forced_two_choice_requires_native");'.replace("\\n","\n"));
   rep(pre,'return [null, msg];\n}\n\nconst currentValue','return msg._tx_id?txEnd(false,"identity_missing"):[null,msg];\n}\n\nconst currentValue');
   rep(pre,'const currentValue = getByPath(state, cfg.statePath);',`const currentValue = getByPath(state, cfg.statePath);
-const canNoop=(!msg._tx_id||String(env.get("INV"+inv+"_TRANSPORT")||"").toLowerCase()!=="esp32")&&Number(state._last_qpiri_ts)>0&&Date.now()-Number(state._last_qpiri_ts)<5000&&currentValue!==null&&currentValue!==undefined;`);
+const canNoop=!msg._tx_id&&Number(state._last_qpiri_ts)>0&&Date.now()-Number(state._last_qpiri_ts)<5000&&currentValue!==null&&currentValue!==undefined;`);
   rep(pre,'if (guard && guard.blockUntil && Date.now() < Number(guard.blockUntil)) {','if (!msg._tx_id && guard && guard.blockUntil && Date.now() < Number(guard.blockUntil)) {');
   rep(pre,'if (isEqual(currentValue, requestedValue, cfg.tolerance)) {','if (canNoop && isEqual(currentValue, requestedValue, cfg.tolerance)) {');
   rep(pre,'if (Number.isInteger(currentNum)) {','if (canNoop && Number.isInteger(currentNum)) {');
@@ -267,7 +302,49 @@ return result;
   // Remove deferred stale cache verification route; regular native path remains.
   verify.wires[0]=verify.wires[0].filter(x=>x!=="espfull"+i+"_verify_filter");
   rep(done,'const success = (msg._learn_success === true);','if(!session?.active)return null;\nmsg._tx_id=session.txId||null;\nconst success = (msg._learn_success === true);');
-  // Discovery and parameter entities are untouched, only new generic status topic.
+
+  rep(parser,'_esp_seq: espRead?msg._esp_seq:null,','_esp_seq: espRead?msg._esp_seq:null,\n    _tx_fields: i===0&&inflight?._tx_id?parsed.fields:null,');
+  rep(sf,'const actual=getByPath(state,session.statePath);',[
+    'const indices={battery_recharge_voltage:8,battery_under_voltage:9,battery_bulk_voltage:10,battery_float_voltage:11,max_ac_charging_current:13,max_charging_current:14,output_source_priority:16,charger_source_priority:17,battery_re_discharge_voltage:22};',
+    'if(msg._esp_verified_readback!==true){',
+    ' const field=msg._tx_fields?.[indices[session.param]];',
+    ' if(field===null||field===undefined||field===""||!/^[-+]?\\d+(\\.\\d+)?$/.test(String(field)))return null;',
+    ' const value=Number(field);if(!Number.isFinite(value))return null;',
+    ' if(session.kind!=="number"&&!Number.isInteger(value))return null;',
+    ' const p=session.statePath.split(".");let c=state;for(const k of p.slice(0,-1)){if(!c[k]||typeof c[k]!=="object")return null;c=c[k];}',
+    ' if(c[p[p.length-1]]===null||c[p[p.length-1]]===undefined||Number(c[p[p.length-1]])!==value)return null;',
+    '}',
+    'const actual=getByPath(state,session.statePath);'
+  ].join("\n"));
+  rep(espResult,'_rx_ts:Date.now(),payload:state','_rx_ts:Date.now(),_esp_verified_readback:true,payload:state');
+  espResult.func=espResult.func.replace('d?.verified===true&&d?.set_acknowledged===true','d?.verified===true&&(d?.set_acknowledged===true||d?.result==="already_at_requested_value")');
+  const espRequest=by.get("espfull"+i+"_learn");
+  rep(espRequest,'command:cmd,_raw_response:"NAK"','command:cmd,_learn_session_id:session.sessionId,_raw_response:"NAK"');
+  const wrapLearning=(n)=>{
+    const old=n.func;
+    n.func=marker+"\nconst sessionAtEntry=flow.get(\"learn_session_inv\"+(msg.inverterNum??1));\nconst out=(function(){\n"+old+"\n})();\nif(!out||!sessionAtEntry)return out;\nfor(const x of out){if(x&&x._learn_complete)x._learn_session_id=sessionAtEntry.sessionId;}\nreturn out;";
+  };
+  wrapLearning(rx);wrapLearning(sf);wrapLearning(build);
+  rep(espRequest,'payload:{reason,param:session?.param||null}','_learn_session_id:session?.sessionId,payload:{reason,param:session?.param||null}');
+  rep(espResult,'payload:{reason:"missing_verified_value",uncertain:true}','_learn_session_id:s.sessionId,payload:{reason:"missing_verified_value",uncertain:true}');
+  rep(done,'if(!session?.active)return null;','if(!session?.active||(session.txId&&msg._learn_session_id!==session.sessionId))return null;');
+  rep(rx,'if((isTimeout||isNak)&&session.txId){\n        return [null,{...buildFailMsg(session,"readback_failed"),payload:{...buildFailMsg(session,"readback_failed").payload,uncertain:true}}];\n    }',[
+    'if((isTimeout||isNak)&&session.txId){',
+    ' session.verifyRetries=Number(session.verifyRetries||0)+1;',
+    ' if(session.verifyRetries<=2){',
+    '  session.verifySentAt=Date.now();session.updatedAt=Date.now();flow.set(sessionKey,session);',
+    '  flow.set(pendingLearnKey,{sessionId:session.sessionId,param:session.param,cmd:"QPIRI",phase:"wait_state",ts:Date.now()});',
+    '  return [{inverterNum:inv,command:"QPIRI",_cmd:"QPIRI",_raw_command:"QPIRI",payload:"QPIRI",_origin:"learn_retry",_learn:{sessionId:session.sessionId,param:session.param,phase:"verify"}},null];',
+    ' }',
+    ' return [null,{...buildFailMsg(session,"readback_failed"),payload:{...buildFailMsg(session,"readback_failed").payload,uncertain:true}}];',
+    '}'
+  ].join("\n"));
+  rep(rx,'session.verifySentAt = Date.now();','session.verifySentAt = Date.now();\n        session.verifyRetries = 0;');
+  rep(parser,'const inflightCmd =','if(!espRead&&!inflight)return null;\nconst inflightCmd =');
+  const discoveryNode=by.get(["4106254e7828ed3b","384929d824e573d3","9d441aa9cbe276c5"][i-1]);
+  if(discoveryNode?.func.includes("command_topic: commandTopic,"))discoveryNode.func=discoveryNode.func.replaceAll("command_topic: commandTopic,","command_topic: commandTopic,\n    qos: 1,");
+
+  // Existing discovery IDs and topics are unchanged; command QoS is raised to 1.
   for(const n of [q,ha,pre,dec,build,rx,sf,done,enq,pump,parser,espResult]){
    try{new Function(n.func)}catch(e){throw Error(n.name+": "+e.message)}
   }
