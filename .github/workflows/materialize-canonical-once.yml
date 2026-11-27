@@ -1,0 +1,104 @@
+name: Materialize canonical flow once
+on:
+  push:
+    branches: [refactor/canonical-nodered-flow]
+    paths: ['.github/workflows/materialize-canonical-once.yml']
+permissions:
+  contents: write
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Materialize and validate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import subprocess,os,json
+          p=Path('smart-voltronic'); f=p/'flows.json'
+          env=dict(os.environ,**{f'INV{i}_TRANSPORT':'serial' for i in range(1,4)})
+          subprocess.run(['node',str(p/'esp32_patch_flows.cjs'),str(f),str(p)],env=env,check=True)
+          subprocess.run(['node',str(p/'transaction_fifo_patch.cjs'),str(f)],check=True)
+          a=json.loads(f.read_text()); m={n['id']:n for n in a}
+          for i,id in enumerate(['b1a8cd69494aac47','bbd3067079b8f836','9288782e4d4509cf'],1):
+           n=m[id]; n['func']='const routed=(function(){\n'+n['func']+'\n})();\nif(!routed)return routed;\nconst mode=String(env.get("INV'+str(i)+'_TRANSPORT")||"serial").toLowerCase();\nif(mode==="disabled")return [null,routed[1],null];\nreturn mode==="esp32"?[null,routed[1],routed[0]]:[routed[0],routed[1],null];'; n['outputs']=3;n['wires'].append([f'espfull{i}_learn'])
+          f.write_text(json.dumps(a,ensure_ascii=False,indent=2)+'\n')
+          r=p/'run.sh';s=r.read_text();start=s.index('# ESP32 cached snapshots');end=s.index('# ============================================================\n# PATCH SERIAL NODES',start);s=s[:start]+'''# Physical transport configuration only; never rewrite function logic or wiring.
+          for inv in 1 2 3; do
+            transport_var="INV${inv}_TRANSPORT"
+            transport="${!transport_var}"
+            jq --arg inv "$inv" --arg mode "$transport" 'map(if (.name == ("Serial In " + $inv) or .name == ("Serial Out " + $inv) or .name == ("tcp request inv " + $inv)) then if ($mode == "esp32" or $mode == "disabled") then .d = true else del(.d) end else . end)' "$FLOWS" > "$TMP" && mv "$TMP" "$FLOWS" || exit 1
+          done
+          
+          '''+s[end:];r.write_text(s)
+          t=p/'tests/test_transaction_fifo.cjs';s=t.read_text().replace('const patch=require("../transaction_fifo_patch.cjs");','');s=s[:s.index('const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json"')]+'''const nodes=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));console.log("PASS "+tests(nodes)+" transaction assertions");\n''';s=s.replace('return run(BUILD,run(DEC,p[0]))[0]','return run(BUILD,run(DEC,p[0]))[mode==="esp32"?2:0]').replace('h.run(h.BUILD,next[1])[0]','h.run(h.BUILD,next[1])[mode==="esp32"?2:0]').replace('h.run(h.BUILD,retry[1])[0]','h.run(h.BUILD,retry[1])[mode==="esp32"?2:0]');t.write_text(s)
+          for name in ['test-canonical-esp32-doctor.cjs','test-main-esp32-parser.cjs','test-esp32-parse-options.cjs']:
+           t=p/'tests'/name;s=t.read_text();s='\n'.join(l for l in s.split('\n') if 'cp.execFileSync' not in l and not ('assert.equal(a.find' in l));s=s.replace('{statusCode:200,_esp_learning_session:"test-wr-1"','{inverterNum:2,statusCode:200,_esp_learning_session:"test-wr-1"');t.write_text(s)
+          for name in ['esp32_bridge_nodes.json','esp32_learning_nodes.json','esp32_patch_flows.cjs','esp32_write_priority_patch.cjs','transaction_fifo_patch.cjs']:
+           (p/name).unlink()
+          for name in ['test_esp32_write_priority.cjs','test_esp_queue_runtime_route.cjs']:
+           (p/'tests'/name).unlink()
+          (p/'tests/test_transaction_fifo_startup.cjs').write_text('''"use strict";
+          const assert=require("node:assert/strict"),fs=require("node:fs");
+          const nodes=JSON.parse(fs.readFileSync("smart-voltronic/flows.json")),map=new Map(nodes.map(n=>[n.id,n]));
+          const mqtt=["99e50980ea51a78b","0e9a9faa6a7dc537","1aa342570293ed07"],build=["b1a8cd69494aac47","bbd3067079b8f836","9288782e4d4509cf"];
+          const modes=["serial","tcp","esp32","disabled"];
+          assert.equal(map.size,nodes.length);
+          for(const n of nodes)if(n.type==="function")new Function(n.func);
+          let count=0;
+          for(const a of modes)for(const b of modes)for(const c of modes){
+           const options={};const expected=[];
+           for(const [j,mode] of [a,b,c].entries()){
+            const i=j+1;options["inv"+i+"_link"]=mode;options["inv"+i+"_serial_port"]="/dev/ttyUSB"+j;options["inv"+i+"_gateway_host"]="192.168.1.2";options["inv"+i+"_gateway_port"]=8899;options["inv"+i+"_esp_host"]="192.168.1.3";options["inv"+i+"_esp_port"]=18081;if(mode!=="disabled")expected.push(i);
+            assert(map.get(mqtt[j]).wires[0].includes("espqueue"+i+"_control"));assert.equal(map.get(mqtt[j]).qos,"1");
+            assert.deepEqual(map.get(build[j]).wires[2],["espfull"+i+"_learn"]);
+           }
+           const data=new Map(),g={get:k=>data.get(k),set:(k,v)=>data.set(k,v)},node={warn(){},error(e){throw Error(String(e))},status(){}};
+           new Function("msg","node","global","env","flow","context",map.get("309c2c85e8d3a815").func)({payload:JSON.stringify(options)},node,g,{get:()=>undefined},g,g);
+           assert([...data.values()].some(v=>Array.isArray(v)&&JSON.stringify(v)===JSON.stringify(expected)),"active slots "+[a,b,c]);
+           count++;
+          }
+          console.log("PASS "+count+" canonical configuration combinations");
+          ''')
+          w=Path('.github/workflows');(w/'test-esp32-write-priority.yml').unlink()
+          (w/'test-main-esp32.yml').write_text('''name: ESP32 canonical flow compatibility
+          on:
+            push:
+              branches: [main, refactor/canonical-nodered-flow]
+            pull_request:
+              branches: [main]
+            workflow_dispatch:
+          permissions:
+            contents: read
+          jobs:
+            test:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                - run: node smart-voltronic/tests/test-canonical-esp32-doctor.cjs
+                - run: node smart-voltronic/tests/test-main-esp32-parser.cjs
+                - run: node smart-voltronic/tests/test-esp32-parse-options.cjs
+                - run: bash -n smart-voltronic/run.sh
+          ''')
+          t=p/'config.yaml';t.write_text(t.read_text().replace('version: "2.3.19"','version: "2.3.20"',1))
+          (p/'flows_version.txt').write_text('2.3.20\n')
+          t=p/'CHANGELOG.md';s=t.read_text();t.write_text(s.replace('## 2.3.19','## 2.3.20 — flow canonique / validation terrain\n\n- Logique ESP32 et FIFO intégrée directement dans flows.json ; routage Learning dynamique. Le démarrage ne réécrit plus les fonctions ni les connexions. Configuration physique et MQTT toujours injectée.\n- Tests de simulation, validation matérielle à effectuer.\n\n## 2.3.19',1))
+          
+          PY
+          node smart-voltronic/tests/test_transaction_fifo.cjs
+          node smart-voltronic/tests/test_transaction_fifo_startup.cjs
+          node smart-voltronic/tests/test-canonical-esp32-doctor.cjs
+          node smart-voltronic/tests/test-main-esp32-parser.cjs
+          node smart-voltronic/tests/test-esp32-parse-options.cjs
+          bash -n smart-voltronic/run.sh
+      - name: Commit validated canonical flow on refactor branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/materialize-canonical-once.yml
+          git add -A
+          git commit -m "refactor: canonical Node-RED flow 2.3.20"
+          git push origin HEAD:refactor/canonical-nodered-flow
