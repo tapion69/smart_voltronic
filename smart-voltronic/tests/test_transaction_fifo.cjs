@@ -1,5 +1,5 @@
 "use strict";
-const fs=require("node:fs");const patch=require("../transaction_fifo_patch.cjs");
+const fs=require("node:fs");
 function tests(nodes){
 const by=new Map(nodes.map(n=>[n.id,n])),count={passed:0},checks=[];
 const assert=(ok,label)=>{if(!ok)throw Error(label);count.passed++;checks.push(label)};
@@ -20,7 +20,7 @@ function harness(i,mode){
  function run(id,msg){if(!contexts.has(id))contexts.set(id,ctx());return new Function("msg","flow","global","context","node","env","Date",by.get(id).func)(msg,flow,global,contexts.get(id),node,env,Clock)}
  const req=(p,v)=>run(Q,{topic:"voltronic/"+i+"/set/"+p,payload:v})[0];
  const q=()=>global.get(K);
- const start=(m)=>{const h=run(HA,m),p=run(PRE,h[0]);return run(BUILD,run(DEC,p[0]))[0]};
+ const start=(m)=>{const h=run(HA,m),p=run(PRE,h[0]);return run(BUILD,run(DEC,p[0]))[mode==="esp32"?2:0]};
  const queue=(m)=>run(ENQ,m);
  const pump=()=>run(PUMP,{inverterNum:i});
  const session=()=>flow.get("learn_session_inv"+i);
@@ -82,7 +82,7 @@ for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
  const c=h.start(h.req("max_ac_charging_current",20));const sid=h.session().sessionId;
  let next=h.run(h.RX,{inverterNum:i,_cmd:c.command,_raw_response:"(NAK",payload:{nak:true},_learn_session_id:sid});
  assert(next?.[1]?._learn_action==="next_candidate","NAK preserves learning fallback");
- const alt=h.run(h.BUILD,next[1])[0];
+ const alt=h.run(h.BUILD,next[1])[mode==="esp32"?2:0];
  assert(alt?.command&&alt.command!==c.command,"next learned format, same transaction");
  assert(h.session().sessionId===sid&&h.q().items.length===1,"candidate retry keeps reservation");
 }
@@ -195,7 +195,7 @@ for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
  const nak=mode==="esp32"?h.run("espfull"+i+"_learn_result",{inverterNum:i,statusCode:400,_esp_learning_session:sid,_esp_learning_command:initial.command,payload:{result:"set_rejected_by_nak"}})[1]:null;
  const retry=mode==="esp32"?h.run(h.RX,nak):h.reply(initial.command,false);
  assert(retry?.[1]?._learn_action==="next_candidate","first installation NAK selects next candidate");
- const alt=h.run(h.BUILD,retry[1])[0];
+ const alt=h.run(h.BUILD,retry[1])[mode==="esp32"?2:0];
  assert(alt?.command&&alt.command!==initial.command&&h.session().sessionId===sid,"cold retry stays in same session");
  const next=mode==="esp32"?h.sendEsp(alt):h.sendNative(alt,20);
  assert(next?.payload==="SolarPlusUtility","second cold SET waits for verified first");
@@ -215,4 +215,4 @@ for(let i=1;i<=3;i++)for(const mode of ["serial","tcp","esp32"]){
 
 return count.passed;
 }
-const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));const nodes=patch(original);const once=JSON.stringify(nodes);if(JSON.stringify(patch(nodes))!==once)throw Error("patch not idempotent");console.log("PASS "+tests(nodes)+" transaction assertions");
+const nodes=JSON.parse(fs.readFileSync("smart-voltronic/flows.json","utf8"));console.log("PASS "+tests(nodes)+" transaction assertions");

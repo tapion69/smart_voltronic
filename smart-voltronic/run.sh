@@ -544,30 +544,12 @@ else
 
 fi
 
-# ESP32 cached snapshots + verified semantic Learning sidecars.
-# Abort if the full flow cannot be safely patched.
-if [ -s "/addon/esp32_bridge_nodes.json" ] && [ -s "/addon/esp32_learning_nodes.json" ]; then
-  node /addon/esp32_patch_flows.cjs "$FLOWS" /addon || {
-    loge "ESP32 full flow patch refused; protecting HA and serial configurations"
-    exit 1
-  }
-else
-  loge "ESP32 bridge files missing in add-on image"
-  exit 1
-fi
-
-# ESP32-only verified-write priority (idempotent, fail closed for unknown flows).
-# It runs after the canonical ESP queue is installed and before Node-RED starts.
-node /addon/esp32_write_priority_patch.cjs "$FLOWS" || {
-  loge "ESP32 verified-write priority patch refused; leaving add-on stopped"
-  exit 1
-}
-
-# Unified FIFO is the last flow transformation: applies to all transports.
-node /addon/transaction_fifo_patch.cjs "$FLOWS" || {
-  loge "Transaction FIFO patch refused; leaving add-on stopped"
-  exit 1
-}
+# Physical transport configuration only; never rewrite function logic or wiring.
+for inv in 1 2 3; do
+  transport_var="INV${inv}_TRANSPORT"
+  transport="${!transport_var}"
+  jq --arg inv "$inv" --arg mode "$transport" 'map(if (.name == ("Serial In " + $inv) or .name == ("Serial Out " + $inv) or .name == ("tcp request inv " + $inv)) then if ($mode == "esp32" or $mode == "disabled") then .d = true else del(.d) end else . end)' "$FLOWS" > "$TMP" && mv "$TMP" "$FLOWS" || exit 1
+done
 
 # ============================================================
 # PATCH SERIAL NODES

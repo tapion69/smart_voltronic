@@ -1,5 +1,10 @@
 # Changelog – Smart Voltronic Add-on
 
+## 2.3.20 — flow canonique / validation terrain
+
+- Logique ESP32 et FIFO intégrée directement dans flows.json ; routage Learning dynamique. Le démarrage ne réécrit plus les fonctions ni les connexions. Configuration physique et MQTT toujours injectée.
+- Tests de simulation, validation matérielle à effectuer.
+
 ## 2.3.19 — validation terrain / field validation
 
 - File FIFO par onduleur et priorité des écritures sur les interrogations périodiques RS232 et Gateway. Relecture de confirmation et protections contre les réponses obsolètes.

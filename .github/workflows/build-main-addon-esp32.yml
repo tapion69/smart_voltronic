@@ -6,7 +6,6 @@ on:
       - 'smart-voltronic/Dockerfile'
       - 'smart-voltronic/config.yaml'
       - 'smart-voltronic/run.sh'
-      - 'smart-voltronic/esp32_patch_flows.cjs'
       - 'smart-voltronic/flows.json'
       - '.github/workflows/build-main-addon-esp32.yml'
   workflow_dispatch:
