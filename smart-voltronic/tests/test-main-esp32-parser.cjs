@@ -3,7 +3,6 @@ const fs=require("fs"),cp=require("child_process"),assert=require("assert");
 const file="/tmp/smart-esp32-main-parser-regression.json";
 fs.writeFileSync(file,fs.readFileSync("smart-voltronic/flows.json"));
 const env={...process.env,INV1_TRANSPORT:"esp32",INV2_TRANSPORT:"esp32",INV3_TRANSPORT:"disabled"};
-cp.execFileSync("node",["smart-voltronic/esp32_patch_flows.cjs",file,"smart-voltronic"],{env});
 const nodes=JSON.parse(fs.readFileSync(file));const map=new Map(nodes.map(n=>[n.id,n]));
 const original=JSON.parse(fs.readFileSync("smart-voltronic/flows.json"));
 const origById=new Map(original.map(n=>[n.id,n]));
