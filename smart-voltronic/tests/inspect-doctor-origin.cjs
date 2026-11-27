@@ -1,1 +1,0 @@
-const fs=require('fs'),a=JSON.parse(fs.readFileSync('smart-voltronic/flows.json')),n=a.find(x=>x.id==='2d7f7336b88783dc');const s=n.func;for(const t of ['### 📊','| ${t.polling}','| ${t.internal}','### 🔌 ${t.serial_transport}','### 🔄 ${t.queue}']){const idx=s.indexOf(t);console.log('ANCHOR',t,idx,idx<0?'':s.slice(Math.max(0,idx-700),idx+1700));}
